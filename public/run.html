@@ -76,7 +76,6 @@
                 <th>Attempt 1</th>
                 <th>Attempt 2</th>
                 <th>Attempt 3</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="orderBody"></tbody>
@@ -237,28 +236,40 @@
             ${[1,2,3].map(num => {
               const att = attempts.find(a => a.attempt_number === num);
               const cls = att ? getAttemptClass(att) : '';
-              const weight = att?.weight || '';
+              const weightStr = att?.weight ? `${att.weight}` : '';
+              
+              const isLocked = att && (att.result === 'good' || att.result === 'no_good');
+              const isPending = att && att.weight && att.result === 'pending';
+              
+              let inlineActions = '';
+              if (isLocked) {
+                const pendingId = pendingResetId === att.id;
+                inlineActions = `
+                  <div style="margin-top:6px;min-height:24px;display:flex;justify-content:center;">
+                    <button class="btn ${pendingId ? 'btn-danger' : 'btn-outline'} btn-sm" style="padding:2px 6px;font-size:0.7rem;line-height:1" onclick="event.stopPropagation();resetAttempt('${att.id}')">
+                      ${pendingId ? 'Confirm?' : '↺ Reset'}
+                    </button>
+                  </div>`;
+              } else if (isPending) {
+                inlineActions = `
+                  <div style="margin-top:6px;min-height:24px;display:flex;justify-content:center;gap:4px">
+                    <button class="result-btn result-btn-good" style="width:24px;height:24px;line-height:24px;font-size:12px;margin:0" onclick="event.stopPropagation();quickResult('${att.id}','good')" title="Good lift">✓</button>
+                    <button class="result-btn result-btn-bad" style="width:24px;height:24px;line-height:24px;font-size:12px;margin:0" onclick="event.stopPropagation();quickResult('${att.id}','no_good')" title="No lift">✕</button>
+                  </div>`;
+              } else {
+                inlineActions = `<div style="margin-top:6px;min-height:24px;"></div>`;
+              }
+
               return `
-                <td class="attempt-cell ${cls}">
-                  <input class="weight-input" value="${weight}" placeholder="-"
+                <td class="attempt-cell ${cls}" style="vertical-align:top;padding-top:12px;padding-bottom:12px">
+                  <input class="weight-input" value="${weightStr}" placeholder="-"
                     onchange="setWeight('${lifter.id}', '${currentLift}', ${num}, this.value)"
                     onclick="event.stopPropagation()"
-                    ${att?.result === 'good' || att?.result === 'no_good' ? 'style="pointer-events:none;opacity:0.7"' : ''}>
+                    ${isLocked ? 'style="pointer-events:none;opacity:0.7"' : ''}>
+                  ${inlineActions}
                 </td>
               `;
             }).join('')}
-            <td>
-              ${attempts.filter(a => a.weight && a.result === 'pending').map(a => `
-                <button class="result-btn result-btn-good" onclick="event.stopPropagation();quickResult('${a.id}','good')" title="Good lift">✓</button>
-                <button class="result-btn result-btn-bad" onclick="event.stopPropagation();quickResult('${a.id}','no_good')" title="No lift">✕</button>
-              `).join('')}
-              ${attempts.filter(a => a.weight && a.result !== 'pending').map(a => {
-                const isPending = pendingResetId === a.id;
-                const btnClass = isPending ? 'btn-danger' : 'btn-outline';
-                const btnText = isPending ? 'Confirm?' : '↺ Reset';
-                return `<button class="btn ${btnClass} btn-sm" style="padding:4px 8px;font-size:0.75rem" onclick="event.stopPropagation();resetAttempt('${a.id}')" title="Reset this attempt">${btnText}</button>`;
-              }).join('')}
-            </td>
           </tr>
         `;
       }).join('');
@@ -334,13 +345,18 @@
     }
 
     async function setWeight(lifterId, liftType, num, value) {
-      const weight = parseFloat(value);
-      if (isNaN(weight) || weight <= 0) return;
+      const weightStr = (value || '').trim();
+      let weight = '';
+      if (weightStr !== '') {
+        const parsed = parseFloat(weightStr);
+        if (isNaN(parsed) || parsed <= 0) return;
+        weight = parsed;
+      }
       try {
         await API.setAttemptWeight(lifterId, liftType, num, weight);
         socket.send('attempt_updated', { meetId, lifterId, liftType, num, weight });
         await loadOrder();
-        showToast(`Weight set: ${weight} kg`);
+        showToast(weight === '' ? 'Wait cleared' : `Weight set: ${weight} kg`);
       } catch (err) { showToast(err.message, 'error'); }
     }
 

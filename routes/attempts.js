@@ -51,8 +51,12 @@ router.put('/set/:lifterId/:liftType/:attemptNumber', (req, res) => {
     const { lifterId, liftType, attemptNumber } = req.params;
     const { weight } = req.body;
     
-    if (!weight || isNaN(weight) || weight <= 0) {
-      return res.status(400).json({ error: 'Weight must be a positive number' });
+    let parsedWeight = null;
+    if (weight !== undefined && weight !== null && String(weight).trim() !== '') {
+      parsedWeight = parseFloat(weight);
+      if (isNaN(parsedWeight) || parsedWeight <= 0) {
+        return res.status(400).json({ error: 'Weight must be a positive number' });
+      }
     }
     
     const validLiftTypes = ['squat', 'bench', 'deadlift'];
@@ -65,13 +69,18 @@ router.put('/set/:lifterId/:liftType/:attemptNumber', (req, res) => {
     ).get(lifterId, liftType, parseInt(attemptNumber));
 
     if (!attempt) {
+      if (parsedWeight === null) return res.json({}); // Nothing to do
       const id = generateId();
       db.prepare('INSERT INTO attempts (id, lifter_id, lift_type, attempt_number, weight) VALUES (?, ?, ?, ?, ?)').run(
-        id, lifterId, liftType, parseInt(attemptNumber), weight
+        id, lifterId, liftType, parseInt(attemptNumber), parsedWeight
       );
       attempt = db.prepare('SELECT * FROM attempts WHERE id = ?').get(id);
     } else {
-      db.prepare('UPDATE attempts SET weight = ? WHERE id = ?').run(weight, attempt.id);
+      if (parsedWeight === null) {
+        db.prepare("UPDATE attempts SET weight = NULL, result = 'pending', ref1 = NULL, ref2 = NULL, ref3 = NULL WHERE id = ?").run(attempt.id);
+      } else {
+        db.prepare('UPDATE attempts SET weight = ? WHERE id = ?').run(parsedWeight, attempt.id);
+      }
       attempt = db.prepare('SELECT * FROM attempts WHERE id = ?').get(attempt.id);
     }
 
