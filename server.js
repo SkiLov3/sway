@@ -67,8 +67,6 @@ app.get('/api/qrcode', async (req, res) => {
 
 const { APP_VERSION } = require('./config');
 
-// ── PORT validation ────────────────────────────────────────────────────────────
-...
 // Network info endpoint
 app.get('/api/network', (req, res) => {
   const localIP = getLocalIP();
