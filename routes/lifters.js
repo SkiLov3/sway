@@ -69,7 +69,11 @@ router.post('/', (req, res) => {
   try {
     const db = getDb();
     const id = generateId();
-    const { meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height } = req.body;
+    const { 
+      meet_id, name, team, division_id, weight_class_id, gender, body_weight, 
+      lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height,
+      bench_safety_height, bench_blocks
+    } = req.body;
     
     if (!meet_id) return res.status(400).json({ error: 'meet_id is required' });
     if (!name || name.trim().length === 0) return res.status(400).json({ error: 'Lifter name is required' });
@@ -82,11 +86,16 @@ router.post('/', (req, res) => {
     }
     
     db.prepare(`
-      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lifters (
+        id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, 
+        lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height,
+        bench_safety_height, bench_blocks
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, meet_id, name.trim(), team || '', division_id || null, weight_class_id || null, 
       gender || 'M', body_weight || null, lot_number || null, flight || 'A', platform || 1, 
-      rack_height || '', squat_rack_height || '', bench_rack_height || '');
+      rack_height || '', squat_rack_height || '', bench_rack_height || '',
+      bench_safety_height || '4', bench_blocks || 'N');
 
     // Create placeholder attempts (3 per lift type)
     const insertAttempt = db.prepare('INSERT INTO attempts (id, lifter_id, lift_type, attempt_number) VALUES (?, ?, ?, ?)');
@@ -111,7 +120,11 @@ router.put('/:id', (req, res) => {
     const lifter = db.prepare('SELECT * FROM lifters WHERE id = ?').get(req.params.id);
     if (!lifter) return res.status(404).json({ error: 'Lifter not found' });
 
-    const { name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height } = req.body;
+    const { 
+      name, team, division_id, weight_class_id, gender, body_weight, 
+      lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height,
+      bench_safety_height, bench_blocks
+    } = req.body;
     
     // Validate inputs
     if (name !== undefined) {
@@ -131,7 +144,8 @@ router.put('/:id', (req, res) => {
     
     db.prepare(`
       UPDATE lifters SET name = ?, team = ?, division_id = ?, weight_class_id = ?, gender = ?, body_weight = ?,
-      lot_number = ?, flight = ?, platform = ?, rack_height = ?, squat_rack_height = ?, bench_rack_height = ?
+      lot_number = ?, flight = ?, platform = ?, rack_height = ?, squat_rack_height = ?, bench_rack_height = ?,
+      bench_safety_height = ?, bench_blocks = ?
       WHERE id = ?
     `).run(
       name ?? lifter.name, team ?? lifter.team, 
@@ -141,6 +155,7 @@ router.put('/:id', (req, res) => {
       flight ?? lifter.flight, platform ?? lifter.platform,
       rack_height ?? lifter.rack_height, squat_rack_height ?? lifter.squat_rack_height,
       bench_rack_height ?? lifter.bench_rack_height,
+      bench_safety_height ?? lifter.bench_safety_height, bench_blocks ?? lifter.bench_blocks,
       req.params.id
     );
 
@@ -178,8 +193,12 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
     });
 
     const insertLifter = db.prepare(`
-      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lifters (
+        id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, 
+        lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height,
+        bench_safety_height, bench_blocks
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertAttempt = db.prepare('INSERT INTO attempts (id, lifter_id, lift_type, attempt_number) VALUES (?, ?, ?, ?)');
 
@@ -254,13 +273,16 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
           const squatRack = record['Squat Rack'] || record.squat_rack || record.squat_rack_height || '';
           const benchRack = record['Bench Rack'] || record.bench_rack || record.bench_rack_height || '';
           const rackHeight = record['Rack Height'] || record.rack_height || record.Rack || '';
+          const benchSafety = record['Bench Safety'] || record.bench_safety || record.bench_safety_height || '4';
+          let benchBlocks = (record['Bench Blocks'] || record.bench_blocks || 'N').trim().toUpperCase();
+          if (!['Y', 'N'].includes(benchBlocks)) benchBlocks = 'N';
 
           const lifterId = generateId();
           insertLifter.run(
             lifterId, meetId, name, team,
             matchedDiv?.id || null, matchedWc?.id || null,
             parsedGender, bodyWeight, lot, flight, platform,
-            rackHeight, squatRack, benchRack
+            rackHeight, squatRack, benchRack, benchSafety, benchBlocks
           );
 
           // Create attempt placeholders

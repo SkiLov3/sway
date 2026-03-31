@@ -102,7 +102,7 @@
         <div class="csv-dropzone" id="csvDropzone" onclick="document.getElementById('csvFile').click()">
           <div style="font-size:2rem;margin-bottom:8px">📄</div>
           <div>Drop CSV file here or click to browse</div>
-          <div style="font-size:0.8rem;margin-top:8px">Columns: Name, Team, Division, Weight Class, Gender, Body Weight, Flight, Lot</div>
+          <div style="font-size:0.8rem;margin-top:8px">Columns: Name, Team, Division, Weight Class, Gender, Body Weight, Flight, Lot, Squat Rack, Bench Rack, Bench Safety, Bench Blocks</div>
         </div>
         <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(this)">
         <div id="importResult" style="margin-top:12px"></div>
@@ -386,6 +386,18 @@
                 <input type="text" value="${escapeHtml(l.bench_rack_height || '')}" placeholder="e.g. 7"
                   onchange="updateLifterField('${l.id}', 'bench_rack_height', this.value)">
               </div>
+              <div class="detail-field">
+                <label>Bench Safety Height</label>
+                <input type="text" value="${escapeHtml(l.bench_safety_height || '4')}" placeholder="e.g. 4"
+                  onchange="updateLifterField('${l.id}', 'bench_safety_height', this.value)">
+              </div>
+              <div class="detail-field">
+                <label>Bench Blocks</label>
+                <select onchange="updateLifterField('${l.id}', 'bench_blocks', this.value)" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:8px 10px;border-radius:var(--radius-sm);font-size:0.9rem;font-family:'Roboto Condensed';font-weight:700;">
+                  <option value="N" ${l.bench_blocks === 'N' ? 'selected' : ''}>No Blocks</option>
+                  <option value="Y" ${l.bench_blocks === 'Y' ? 'selected' : ''}>Use Blocks (Y)</option>
+                </select>
+              </div>
             </div>
             <div class="detail-section-label">🏋️ Opening Attempts (kg)</div>
             <div class="detail-grid">
@@ -483,7 +495,7 @@
     }
 
     function downloadTemplate() {
-      const csv = 'Name,Team,Division,Weight Class,Gender,Body Weight,Flight,Lot,Squat Rack,Bench Rack,Squat Opener,Bench Opener,Deadlift Opener\nJohn Doe,Team Alpha,Men\'s Raw Open,83,M,81.2,A,1,14,7,180,120,220\nJane Smith,Team Beta,Women\'s Raw Open,63,F,61.8,A,2,12,6,100,60,130\n';
+      const csv = 'Name,Team,Division,Weight Class,Gender,Body Weight,Flight,Lot,Squat Rack,Bench Rack,Bench Safety,Bench Blocks,Squat Opener,Bench Opener,Deadlift Opener\nJohn Doe,Team Alpha,Men\'s Raw Open,83,M,81.2,A,1,14,7,4,N,180,120,220\nJane Smith,Team Beta,Women\'s Raw Open,63,F,61.8,A,2,12,6,3,Y,100,60,130\n';
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);

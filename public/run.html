@@ -348,9 +348,15 @@
           rackHeight = lifter.bench_rack_height || lifter.rack_height || '';
           rackLabel = 'Bench Rack';
         }
-        if (rackHeight && rackHeight.trim()) {
-          rackEl.style.display = 'inline-block';
-          rackEl.textContent = `🔧 ${rackLabel}: ${rackHeight.trim()}`;
+        if (rackLabel && rackHeight.trim()) {
+          rackEl.style.display = 'block';
+          let info = `🔧 ${rackLabel}: ${rackHeight.trim()}`;
+          if (currentLift === 'bench') {
+            const safety = lifter.bench_safety_height || '4';
+            const blocks = lifter.bench_blocks === 'Y' ? 'Blocks: YES' : 'No Blocks';
+            info += ` | 🛡️ Safety: ${safety} | 🦶 ${blocks}`;
+          }
+          rackEl.textContent = info;
         } else {
           rackEl.style.display = 'none';
         }

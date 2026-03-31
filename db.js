@@ -81,6 +81,8 @@ function initSchema() {
       rack_height TEXT DEFAULT '',
       bench_rack_height TEXT DEFAULT '',
       squat_rack_height TEXT DEFAULT '',
+      bench_safety_height TEXT DEFAULT '4',
+      bench_blocks TEXT DEFAULT 'N',
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (meet_id) REFERENCES meets(id) ON DELETE CASCADE,
       FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE SET NULL,
@@ -147,6 +149,11 @@ function initSchema() {
       version: 3,
       description: 'Add decision_display_seconds to meets',
       sql: "ALTER TABLE meets ADD COLUMN decision_display_seconds INTEGER DEFAULT 15",
+    },
+    {
+      version: 4,
+      description: 'Add bench_safety_height and bench_blocks to lifters',
+      sql: "ALTER TABLE lifters ADD COLUMN bench_safety_height TEXT DEFAULT '4'; ALTER TABLE lifters ADD COLUMN bench_blocks TEXT DEFAULT 'N';",
     },
     // Add future migrations here: { version: N, description: '...', sql: '...' }
   ];

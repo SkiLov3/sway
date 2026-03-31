@@ -29,11 +29,12 @@
       border: 2px solid var(--accent-primary);
       border-radius: var(--radius-md);
       padding: 12px 28px;
-      min-width: 120px;
+      min-width: 140px;
     }
-    .rack-height-label { font-family: 'Roboto Condensed'; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 4px; }
+    .rack-height-label { font-family: 'Roboto Condensed'; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 2px; }
     .rack-height-value { font-family: 'Outfit'; font-weight: 900; font-size: 2.8rem; color: var(--accent-secondary); line-height: 1; }
-    .rack-height-badge.no-rack { opacity: 0; pointer-events: none; }
+    .rack-extra-info { font-family: 'Roboto Condensed'; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-primary); margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; width: 100%; text-align: center; }
+    .rack-height-badge.no-rack { display: none; }
 
     /* ── Bottom bar: On Deck | Flight Order + Division | In the Hole ── */
     .display-bottom { 
@@ -193,6 +194,7 @@
         <div class="rack-height-badge no-rack" id="rackHeightBadge">
           <div class="rack-height-label" id="rackHeightLabel">Squat Rack</div>
           <div class="rack-height-value" id="rackHeightValue">—</div>
+          <div id="rackExtraInfo"></div>
         </div>
       </div>
     </div>
@@ -382,25 +384,32 @@
       const badge = document.getElementById('rackHeightBadge');
       const rackLabel = document.getElementById('rackHeightLabel');
       const rackValue = document.getElementById('rackHeightValue');
+      const rackExtra = document.getElementById('rackExtraInfo');
       
       let rackHeight = '';
       let rackLabelText = '';
+      let extraHtml = '';
+
       if (liftType === 'squat') {
         rackHeight = lifter.squat_rack_height || lifter.rack_height || '';
         rackLabelText = 'Squat Rack';
       } else if (liftType === 'bench') {
         rackHeight = lifter.bench_rack_height || lifter.rack_height || '';
         rackLabelText = 'Bench Rack';
-      } else {
-        rackHeight = '';  // Deadlift has no rack
+        const safety = lifter.bench_safety_height || '4';
+        const blocks = lifter.bench_blocks === 'Y' ? 'YES' : 'NO';
+        extraHtml = `<div class="rack-extra-info">🛡️ Safety: ${safety}</div>
+                     <div class="rack-extra-info" style="border:none;padding:0;margin-top:2px">🦶 Blocks: ${blocks}</div>`;
       }
 
       if (rackHeight && rackHeight.trim()) {
         badge.classList.remove('no-rack');
         rackLabel.textContent = rackLabelText;
         rackValue.textContent = rackHeight.trim();
+        rackExtra.innerHTML = extraHtml;
       } else {
         badge.classList.add('no-rack');
+        rackExtra.innerHTML = '';
       }
 
       // ── On Deck / In the Hole ──────────────────────────────────────────────
