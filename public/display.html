@@ -192,8 +192,10 @@
         if (data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
         if (data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
         
-        // Only flash the final decision after all 3 refs have voted
+        // Final decision: stop the clock, flash result, reload state after flash
         if (data.result && (data.result === 'good' || data.result === 'no_good')) {
+          displayTimer.stop();
+          displayTimer.reset(60);
           showDecisionFlash(data.result);
           setTimeout(loadState, 2000); // Reload everything after the flash
         }
