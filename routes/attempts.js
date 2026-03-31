@@ -88,36 +88,41 @@ router.put('/decision/:lifterId/:liftType/:attemptNumber', (req, res) => {
     const { lifterId, liftType, attemptNumber } = req.params;
     const { ref1, ref2, ref3 } = req.body;
 
-    const attempt = db.prepare(
-      'SELECT * FROM attempts WHERE lifter_id = ? AND lift_type = ? AND attempt_number = ?'
-    ).get(lifterId, liftType, parseInt(attemptNumber));
+    const processDecision = db.transaction(() => {
+      const attempt = db.prepare(
+        'SELECT * FROM attempts WHERE lifter_id = ? AND lift_type = ? AND attempt_number = ?'
+      ).get(lifterId, liftType, parseInt(attemptNumber));
 
-    if (!attempt) return res.status(404).json({ error: 'Attempt not found' });
+      if (!attempt) return { error: 'Attempt not found', status: 404 };
 
-    // Validate ref decisions
-    const validDecisions = ['', 'white', 'red'];
-    if ((ref1 && !validDecisions.includes(ref1)) || (ref2 && !validDecisions.includes(ref2)) || (ref3 && !validDecisions.includes(ref3))) {
-      return res.status(400).json({ error: 'Invalid referee decision. Must be "white" or "red"' });
-    }
+      // Validate ref decisions
+      const validDecisions = ['', 'white', 'red'];
+      if ((ref1 && !validDecisions.includes(ref1)) || (ref2 && !validDecisions.includes(ref2)) || (ref3 && !validDecisions.includes(ref3))) {
+        return { error: 'Invalid referee decision. Must be "white" or "red"', status: 400 };
+      }
 
-    const r1 = ref1 ?? attempt.ref1;
-    const r2 = ref2 ?? attempt.ref2;
-    const r3 = ref3 ?? attempt.ref3;
+      const r1 = ref1 ?? attempt.ref1;
+      const r2 = ref2 ?? attempt.ref2;
+      const r3 = ref3 ?? attempt.ref3;
 
-    // Auto-determine result based on majority
-    let result = attempt.result;
-    const votes = [r1, r2, r3].filter(v => v !== '');
-    if (votes.length === 3) {
-      const whites = votes.filter(v => v === 'white').length;
-      result = whites >= 2 ? 'good' : 'no_good';
-    }
+      // Auto-determine result based on majority
+      let result = attempt.result;
+      const votes = [r1, r2, r3].filter(v => v !== '');
+      if (votes.length === 3) {
+        const whites = votes.filter(v => v === 'white').length;
+        result = whites >= 2 ? 'good' : 'no_good';
+      }
 
-    db.prepare(`
-      UPDATE attempts SET ref1 = ?, ref2 = ?, ref3 = ?, result = ? WHERE id = ?
-    `).run(r1, r2, r3, result, attempt.id);
+      db.prepare(`
+        UPDATE attempts SET ref1 = ?, ref2 = ?, ref3 = ?, result = ? WHERE id = ?
+      `).run(r1, r2, r3, result, attempt.id);
 
-    const updated = db.prepare('SELECT * FROM attempts WHERE id = ?').get(attempt.id);
-    res.json(updated);
+      return { updated: db.prepare('SELECT * FROM attempts WHERE id = ?').get(attempt.id) };
+    });
+
+    const out = processDecision();
+    if (out.error) return res.status(out.status).json({ error: out.error });
+    res.json(out.updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

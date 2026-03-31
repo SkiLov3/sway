@@ -108,6 +108,13 @@ router.put('/:id', (req, res) => {
 
     const { name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height } = req.body;
     
+    // Validate inputs
+    if (name !== undefined) {
+      if (!name || name.trim().length === 0) return res.status(400).json({ error: 'Lifter name cannot be empty' });
+      if (name.trim().length > MAX_NAME) return res.status(400).json({ error: `Name must be ${MAX_NAME} characters or fewer` });
+    }
+    if (team && team.length > MAX_TEAM) return res.status(400).json({ error: `Team must be ${MAX_TEAM} characters or fewer` });
+
     // Handle empty string for nullable FK fields — treat '' as null
     const resolvedDivision = division_id !== undefined ? (division_id || null) : lifter.division_id;
     const resolvedWeightClass = weight_class_id !== undefined ? (weight_class_id || null) : lifter.weight_class_id;

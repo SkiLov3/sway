@@ -7,6 +7,14 @@ const QRCode = require('qrcode');
 const helmet = require('helmet');
 const { getDb } = require('./db');
 
+// ── PORT validation ────────────────────────────────────────────────────────────
+const rawPort = process.env.PORT || '3000';
+const PORT = parseInt(rawPort, 10);
+if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
+  console.error(`[SWAY] Invalid PORT value: "${rawPort}". Must be a number between 1–65535.`);
+  process.exit(1);
+}
+
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -110,14 +118,6 @@ function broadcast(message, excludeWs = null) {
 
 // Make broadcast available to routes
 app.set('broadcast', broadcast);
-
-// ── PORT validation ────────────────────────────────────────────────────────────
-const rawPort = process.env.PORT || '3000';
-const PORT = parseInt(rawPort, 10);
-if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
-  console.error(`[SWAY] Invalid PORT value: "${rawPort}". Must be a number between 1–65535.`);
-  process.exit(1);
-}
 
 // ── Initialize DB ──────────────────────────────────────────────────────────────
 getDb();

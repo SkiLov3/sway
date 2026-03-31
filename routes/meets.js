@@ -69,6 +69,13 @@ router.put('/:id', (req, res) => {
     const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
     if (!meet) return res.status(404).json({ error: 'Meet not found' });
 
+    // Validate name and federation lengths
+    if (name !== undefined) {
+      if (!name || name.trim().length === 0) return res.status(400).json({ error: 'Meet name cannot be empty' });
+      if (name.trim().length > MAX_MEET_NAME) return res.status(400).json({ error: `Meet name must be ${MAX_MEET_NAME} characters or fewer` });
+    }
+    if (federation && federation.length > MAX_FED) return res.status(400).json({ error: `Federation must be ${MAX_FED} characters or fewer` });
+
     // Validate plates_config if provided
     let platesConfigStr = meet.plates_config;
     if (plates_config !== undefined) {
@@ -201,6 +208,10 @@ router.put('/:id/state', (req, res) => {
   const db = getDb();
   const { current_platform, current_lift_type, current_attempt_number, current_flight, current_lifter_id, clock_seconds, clock_running } = req.body;
   
+  if (current_lift_type !== undefined && !['squat', 'bench', 'deadlift'].includes(current_lift_type)) {
+    return res.status(400).json({ error: 'Invalid lift type' });
+  }
+
   let state = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
   if (!state) {
     db.prepare('INSERT INTO meet_state (meet_id) VALUES (?)').run(req.params.id);
