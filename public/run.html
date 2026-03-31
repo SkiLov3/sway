@@ -196,16 +196,20 @@
           }
         }
       );
-      timer.render();
-
       await loadOrder();
       
       socket.connect();
+      
       socket.on('attempt_updated', () => loadOrder());
       socket.on('decision_made', (data) => {
         loadOrder();
         if (data && (data.result === 'good' || data.result === 'no_good')) {
-          resetTimer();
+          timer.reset(60);
+          const btn = document.getElementById('timerToggleBtn');
+          if (btn) {
+            btn.innerHTML = '▶ Start';
+            btn.className = 'btn btn-success btn-sm';
+          }
         }
       });
       socket.on('state_changed', (data) => {
@@ -323,13 +327,6 @@
           document.getElementById(`refSmall${n}`).className = `ref-light ${refVal || 'waiting'}`;
         });
 
-        // Broadcast to display
-        socket.send('current_lifter', {
-          meetId, platform, lifter, attempt: att,
-          liftType: currentLift, attemptNumber: currentAttemptNum,
-          liftingOrder, flight: currentFlight
-        });
-
         // Save state
         API.updateMeetState(meetId, {
           current_lift_type: currentLift,
@@ -361,8 +358,6 @@
       }
       try {
         await API.setAttemptWeight(lifterId, liftType, num, weight);
-        socket.send('attempt_updated', { meetId, lifterId, liftType, num, weight });
-        await loadOrder();
         showToast(weight === '' ? 'Wait cleared' : `Weight set: ${weight} kg`);
       } catch (err) { showToast(err.message, 'error'); }
     }
@@ -370,8 +365,6 @@
     async function quickResult(attemptId, result) {
       try {
         await API.updateAttempt(attemptId, { result });
-        socket.send('decision_made', { meetId, attemptId, result });
-        await loadOrder();
         showToast(result === 'good' ? '✅ Good lift!' : '❌ No lift');
       } catch (err) { showToast(err.message, 'error'); }
     }
@@ -396,8 +389,6 @@
       try {
         await API.updateAttempt(id, { result: 'pending', ref1: '', ref2: '', ref3: '' });
         showToast('Attempt reset to pending');
-        socket.send('decision_made', { meetId }); // trigger reload on UI/display
-        await loadOrder();
       } catch (e) {
         showToast('Failed to reset: ' + e.message, 'error');
       }
@@ -420,9 +411,7 @@
       
       try {
         const result = await API.recordDecision(lifter.id, currentLift, currentAttemptNum, refDecisions);
-        socket.send('decision_made', { meetId, ...refDecisions, result: result.result, lifterId: lifter.id });
         clearDecision();
-        await loadOrder();
         showToast(result.result === 'good' ? '✅ Good lift!' : '❌ No lift');
         resetTimer();
       } catch (err) { showToast(err.message, 'error'); }
@@ -459,7 +448,6 @@
       currentLifterIdx = 0;
       loadOrder();
       resetTimer();
-      socket.send('state_changed', { meetId, liftType: currentLift, attemptNumber: currentAttemptNum, flight: currentFlight });
     }
 
     function switchLift(lift) {
@@ -468,7 +456,6 @@
       currentLifterIdx = 0;
       document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === lift));
       loadOrder();
-      socket.send('state_changed', { meetId, liftType: lift, attemptNumber: 1 });
     }
 
     function switchFlight(flight) {
@@ -476,7 +463,6 @@
       currentLifterIdx = 0;
       document.querySelectorAll('.flight-tab').forEach(t => t.classList.toggle('active', t.dataset.flight === flight));
       loadOrder();
-      socket.send('state_changed', { meetId, flight });
     }
 
     function toggleTimer() {

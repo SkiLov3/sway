@@ -146,9 +146,6 @@
       try {
         const result = await API.recordDecision(currentLifter.id, currentLiftType, currentAttemptNum, data);
         
-        // Send via websocket too
-        socket.send('decision_made', { meetId, [refKey]: decision, lifterId: currentLifter.id, result: result.result });
-        
         // Show confirmation
         document.getElementById('goodLiftBtn').disabled = true;
         document.getElementById('noLiftBtn').disabled = true;

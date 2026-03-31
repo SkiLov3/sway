@@ -175,9 +175,12 @@
 
       socket.connect();
       
-      socket.on('current_lifter', (data) => {
-        if (data.meetId !== meetId) return;
-        updateDisplay(data);
+      socket.on('state_changed', (data) => {
+        if (data.meetId === meetId) loadState();
+      });
+
+      socket.on('attempt_updated', (data) => {
+        if (data.meetId === meetId) loadState();
       });
 
       socket.on('decision_made', (data) => {
@@ -192,6 +195,7 @@
         // Only flash the final decision after all 3 refs have voted
         if (data.result && (data.result === 'good' || data.result === 'no_good')) {
           showDecisionFlash(data.result);
+          setTimeout(loadState, 2000); // Reload everything after the flash
         }
       });
 
@@ -200,7 +204,11 @@
       socket.on('timer_reset', (data) => { if (data.meetId !== meetId) return; displayTimer.reset(data.seconds || 60); });
       socket.on('timer',       (data) => { if (data.meetId !== meetId) return; displayTimer.seconds = data.seconds; displayTimer.render(); });
 
-      // Load initial state
+      // Initial load
+      loadState();
+    }
+
+    async function loadState() {
       try {
         const state = await API.getMeetState(meetId);
         const order = await API.getLiftingOrder(meetId, platform, state.current_flight || 'A', state.current_lift_type || 'squat', state.current_attempt_number || 1);
@@ -216,7 +224,7 @@
             flight: state.current_flight || 'A'
           });
         }
-      } catch (e) { console.log('No initial state'); }
+      } catch (e) { console.log('State load error:', e); }
     }
 
     function updateDisplay(data) {

@@ -101,6 +101,24 @@ router.put('/set/:lifterId/:liftType/:attemptNumber', (req, res) => {
       attempt = db.prepare('SELECT * FROM attempts WHERE id = ?').get(attempt.id);
     }
 
+    // Broadcast update
+    const broadcast = req.app.get('broadcast');
+    if (broadcast) {
+      const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(attempt.lifter_id);
+      broadcast({ 
+        type: 'attempt_updated', 
+        data: { 
+          meetId: lifter?.meet_id, 
+          lifterId: attempt.lifter_id, 
+          id: attempt.id, 
+          weight: attempt.weight,
+          result: attempt.result,
+          liftType: attempt.lift_type,
+          attemptNumber: attempt.attempt_number
+        } 
+      });
+    }
+
     res.json(attempt);
   } catch (err) {
     res.status(500).json({ error: err.message });
