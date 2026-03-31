@@ -120,23 +120,27 @@ function broadcast(message, excludeWs = null) {
 app.set('broadcast', broadcast);
 
 // ── Initialize DB ──────────────────────────────────────────────────────────────
-getDb();
+if (process.env.NODE_ENV !== 'test') {
+  getDb();
+}
 
 // ── Start server ───────────────────────────────────────────────────────────────
-server.listen(PORT, '0.0.0.0', () => {
-  const localIP = getLocalIP();
-  console.log('');
-  console.log('╔══════════════════════════════════════════════╗');
-  console.log('║              ⚡ SWAY is running ⚡            ║');
-  console.log('╠══════════════════════════════════════════════╣');
-  console.log(`║  Local:   http://localhost:${PORT}              ║`);
-  console.log(`║  Network: http://${localIP}:${PORT}       ║`);
-  console.log('╠══════════════════════════════════════════════╣');
-  console.log('║  Open Display view on TV via HDMI            ║');
-  console.log('║  Open Referee page on phones                 ║');
-  console.log('╚══════════════════════════════════════════════╝');
-  console.log('');
-});
+if (require.main === module) {
+  server.listen(PORT, '0.0.0.0', () => {
+    const localIP = getLocalIP();
+    console.log('');
+    console.log('╔══════════════════════════════════════════════╗');
+    console.log('║              ⚡ SWAY is running ⚡            ║');
+    console.log('╠══════════════════════════════════════════════╣');
+    console.log(`║  Local:   http://localhost:${PORT}              ║`);
+    console.log(`║  Network: http://${localIP}:${PORT}       ║`);
+    console.log('╠══════════════════════════════════════════════╣');
+    console.log('║  Open Display view on TV via HDMI            ║');
+    console.log('║  Open Referee page on phones                 ║');
+    console.log('╚══════════════════════════════════════════════╝');
+    console.log('');
+  });
+}
 
 // ── Graceful shutdown ──────────────────────────────────────────────────────────
 function shutdown(signal) {
@@ -155,3 +159,5 @@ function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
+
+module.exports = { app, server, wss };

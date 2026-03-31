@@ -270,7 +270,21 @@ router.put('/:id/state', (req, res) => {
     current_lifter_id, clock_seconds, clock_running, req.params.id
   );
   
-  res.json(db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id));
+  const updated = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
+
+  // Broadcast state change
+  const broadcast = req.app.get('broadcast');
+  if (broadcast) {
+    broadcast({ 
+      type: 'state_changed', 
+      data: { 
+        meetId: req.params.id, 
+        ...updated
+      } 
+    });
+  }
+  
+  res.json(updated);
 });
 
 // --- Results ---

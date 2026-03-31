@@ -6,19 +6,32 @@ const DB_PATH = path.join(__dirname, 'data', 'sway.db');
 
 let db;
 
-function getDb() {
-  if (!db) {
+function getDb(customPath) {
+  if (!db || customPath) {
     const fs = require('fs');
-    const dataDir = path.join(__dirname, 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    const dbPath = customPath || DB_PATH;
+    
+    // Only create directory if using default path
+    if (!customPath) {
+      const dataDir = path.join(__dirname, 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
     }
-    db = new Database(DB_PATH);
+    
+    db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     initSchema();
   }
   return db;
+}
+
+function resetDb() {
+  if (db) {
+    db.close();
+    db = null;
+  }
 }
 
 function initSchema() {
@@ -141,4 +154,4 @@ function generateId() {
   return uuidv4();
 }
 
-module.exports = { getDb, generateId };
+module.exports = { getDb, generateId, resetDb };

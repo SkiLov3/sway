@@ -12,6 +12,7 @@ Sway is a minimal, local-first web application designed to help you run powerlif
 - **Meet Configuration**: Built-in division presets for USAPL, USPA, and IPF. Add custom divisions, weight classes, and easily import lifters via CSV.
 - **Live Scoring Board**: Operator dashboard showing lifting order, flight tracking, and a 60-second competition timer.
 - **Automated Results**: Real-time results page showing placing, totals, and color-coded attempt tables, exportable to CSV.
+- **Rock Solid Integrity**: Integrated server-side broadcasting for real-time sync, input validation for body weights and attempt weights, and automated majority-vote calculation.
 
 ## Getting Started
 
@@ -24,21 +25,35 @@ You do not need an active internet connection to run the meet, but you must have
    git clone https://github.com/SkiLov3/sway.git
    cd sway
    ```
-2. Install dependencies:
+2. Install dependencies (including development dependencies for testing):
    ```bash
    npm install
    ```
 3. Start the server:
    ```bash
-   node server.js
+   npm start
    ```
-   Or use `npm start`.
 
 4. Open `http://localhost:3000` in your browser.
 
 The app will display your local network IP (e.g., `http://192.168.1.100:3000`) so you can access the referee and display pages from other devices on your Wi-Fi.
 
-### Option 2: Run with Docker
+## Testing
+
+Sway includes a comprehensive test suite using **Jest** and **Supertest** to ensure scoring accuracy and API reliability.
+
+### Run all tests:
+```bash
+npm test
+```
+
+### Test Coverage:
+- **Scoring Logic**: Validates DOTS points calculation for men, women, and non-binary lifters.
+- **Meets API**: Ensures meet creation, updates, and state management work as expected.
+- **Lifters API**: Verifies lifter registration, input validation, and CSV import logic.
+- **Attempts API**: Tests real-time weight setting, referee voting, and majority-rule results.
+
+## Data Persistence
 
 If you prefer using Docker to avoid installing Node.js:
 

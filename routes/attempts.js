@@ -38,6 +38,23 @@ router.put('/:id', (req, res) => {
     `).run(weight, result, ref1, ref2, ref3, req.params.id);
 
     const updated = db.prepare('SELECT * FROM attempts WHERE id = ?').get(req.params.id);
+    
+    // Broadcast update
+    const broadcast = req.app.get('broadcast');
+    if (broadcast) {
+      const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(updated.lifter_id);
+      broadcast({ 
+        type: 'attempt_updated', 
+        data: { 
+          meetId: lifter?.meet_id, 
+          lifterId: updated.lifter_id, 
+          id: updated.id, 
+          weight: updated.weight,
+          result: updated.result
+        } 
+      });
+    }
+
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -131,6 +148,25 @@ router.put('/decision/:lifterId/:liftType/:attemptNumber', (req, res) => {
 
     const out = processDecision();
     if (out.error) return res.status(out.status).json({ error: out.error });
+    
+    // Broadcast decision
+    const broadcast = req.app.get('broadcast');
+    if (broadcast && out.updated) {
+      const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(out.updated.lifter_id);
+      broadcast({ 
+        type: 'decision_made', 
+        data: { 
+          meetId: lifter?.meet_id, 
+          lifterId: out.updated.lifter_id,
+          attemptId: out.updated.id,
+          result: out.updated.result,
+          ref1: out.updated.ref1,
+          ref2: out.updated.ref2,
+          ref3: out.updated.ref3
+        } 
+      });
+    }
+
     res.json(out.updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
