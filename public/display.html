@@ -108,6 +108,18 @@
       opacity: 0.7;
     }
 
+    /* Standard Display Lights Labels */
+    .ref-group {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+    }
+    .ref-label {
+      font-family: 'Roboto Condensed'; font-weight: 700;
+      font-size: 0.65rem; text-transform: uppercase;
+      letter-spacing: 1.5px; opacity: 0.35;
+      color: var(--text-primary);
+    }
+
     /* Background Specific Coloring */
     .decision-good-bg  { background: #ffffff; }
     .decision-bad-bg   { background: #c0392b; }
@@ -159,9 +171,18 @@
         <div id="displayPlateLoader" style="padding: 10px 0;"></div>
 
         <div class="ref-lights ref-lights-lg" id="displayRefLights">
-          <div class="ref-light waiting" id="dispRef1"></div>
-          <div class="ref-light waiting" id="dispRef2"></div>
-          <div class="ref-light waiting" id="dispRef3"></div>
+          <div class="ref-group">
+            <div class="ref-light waiting" id="dispRef1"></div>
+            <div class="ref-label">Left</div>
+          </div>
+          <div class="ref-group">
+            <div class="ref-light waiting" id="dispRef2"></div>
+            <div class="ref-label">Head</div>
+          </div>
+          <div class="ref-group">
+            <div class="ref-light waiting" id="dispRef3"></div>
+            <div class="ref-label">Right</div>
+          </div>
         </div>
 
         <div class="prediction" id="displayPrediction"></div>
