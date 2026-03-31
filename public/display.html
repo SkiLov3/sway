@@ -177,10 +177,16 @@
 
       socket.on('decision_made', (data) => {
         if (data.meetId !== meetId) return;
+        
+        // Update the specific referee light that just voted
         if (data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
         if (data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
         if (data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
-        if (data.result) showDecisionFlash(data.result);
+        
+        // Only flash the final decision after all 3 refs have voted
+        if (data.result && (data.result === 'good' || data.result === 'no_good')) {
+          showDecisionFlash(data.result);
+        }
       });
 
       socket.on('timer_start', (data) => { if (data.meetId !== meetId) return; displayTimer.start(data.seconds); });
