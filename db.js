@@ -21,6 +21,7 @@ function getDb(customPath) {
     
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL'); // Safe with WAL, improves performance
     db.pragma('foreign_keys = ON');
     initSchema();
   }
@@ -86,6 +87,8 @@ function initSchema() {
       FOREIGN KEY (weight_class_id) REFERENCES weight_classes(id) ON DELETE SET NULL
     );
 
+    CREATE INDEX IF NOT EXISTS idx_lifters_meet_id ON lifters(meet_id);
+
     CREATE TABLE IF NOT EXISTS attempts (
       id TEXT PRIMARY KEY,
       lifter_id TEXT NOT NULL,
@@ -100,6 +103,8 @@ function initSchema() {
       UNIQUE(lifter_id, lift_type, attempt_number),
       FOREIGN KEY (lifter_id) REFERENCES lifters(id) ON DELETE CASCADE
     );
+
+    CREATE INDEX IF NOT EXISTS idx_attempts_lifter_id ON attempts(lifter_id);
 
     CREATE TABLE IF NOT EXISTS meet_state (
       meet_id TEXT PRIMARY KEY,

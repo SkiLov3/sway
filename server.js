@@ -90,6 +90,9 @@ const WS_MAX_BYTES = 16 * 1024; // 16 KB
 const wsClients = new Set();
 
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   wsClients.add(ws);
   
   ws.on('message', (data) => {
@@ -115,6 +118,24 @@ wss.on('connection', (ws) => {
     wsClients.delete(ws);
   });
 });
+
+let pingInterval;
+if (process.env.NODE_ENV !== 'test') {
+  pingInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws.isAlive === false) {
+        wsClients.delete(ws);
+        return ws.terminate();
+      }
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
+
+  wss.on('close', () => {
+    clearInterval(pingInterval);
+  });
+}
 
 function broadcast(message, excludeWs = null) {
   const data = JSON.stringify(message);
