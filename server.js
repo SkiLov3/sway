@@ -65,10 +65,19 @@ app.get('/api/qrcode', async (req, res) => {
   }
 });
 
+const { APP_VERSION } = require('./config');
+
+// ── PORT validation ────────────────────────────────────────────────────────────
+...
 // Network info endpoint
 app.get('/api/network', (req, res) => {
   const localIP = getLocalIP();
-  res.json({ ip: localIP, port: PORT, baseUrl: `http://${localIP}:${PORT}` });
+  res.json({ 
+    ip: localIP, 
+    port: PORT, 
+    baseUrl: `http://${localIP}:${PORT}`,
+    version: APP_VERSION
+  });
 });
 
 // ── WebSocket ──────────────────────────────────────────────────────────────────

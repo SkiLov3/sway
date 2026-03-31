@@ -136,10 +136,19 @@ function createSidebar(meetId, meetName, activePage) {
         <div class="sidebar-section">Tools</div>
         <a href="#" class="sidebar-link" onclick="showQRCode(event)">📱 QR Codes</a>
       ` : ''}
+      <div class="sidebar-footer" id="sidebarVersion" style="position:absolute;bottom:20px;left:24px;font-size:0.7rem;color:var(--text-muted)">
+        v1.0.0
+      </div>
     </nav>
   `;
   
   document.body.insertAdjacentHTML('afterbegin', sidebarHtml);
+  
+  // Update version dynamically
+  API.getNetworkInfo().then(info => {
+    const el = document.getElementById('sidebarVersion');
+    if (el && info.version) el.textContent = `v${info.version}`;
+  }).catch(() => {});
 }
 
 function toggleSidebar() {
