@@ -172,6 +172,7 @@
     let displayTimer = null;
     let displayLifterId = null;
     let isFlashing = false; // Flag to prevent state reloads during decision banners
+    let socketListenersRegistered = false; // Guard against duplicate socket listeners
 
     async function init() {
       try {
@@ -189,56 +190,62 @@
 
       socket.connect();
       
-      socket.on('state_changed', (data) => {
-        if (data.meetId === meetId && !isFlashing) loadState();
-      });
+      // Register listeners only once
+      if (!socketListenersRegistered) {
+        socketListenersRegistered = true;
 
-      socket.on('attempt_updated', (data) => {
-        if (data.meetId === meetId && !isFlashing) loadState();
-      });
+        socket.on('state_changed', (data) => {
+          if (data.meetId === meetId && !isFlashing) loadState();
+        });
 
-      socket.on('decision_made', (data) => {
-        if (data.meetId !== meetId) return;
-        if (data.lifterId && data.lifterId !== displayLifterId) return;
-        
-        // Update the specific referee light that just voted
-        if (data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
-        if (data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
-        if (data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
-        
-        // Final decision: stop the clock, flash result, reload state after banner expires
-        if (data.result && (data.result === 'good' || data.result === 'no_good')) {
-          displayTimer.stop();
-          displayTimer.reset(60);
-          showDecisionFlash(data.result);
+        socket.on('attempt_updated', (data) => {
+          if (data.meetId === meetId && !isFlashing) loadState();
+        });
+
+        socket.on('decision_made', (data) => {
+          if (data.meetId !== meetId) return;
+          if (data.lifterId && data.lifterId !== displayLifterId) return;
           
-          isFlashing = true; // Lock the display on this lifter
+          // Update individual ref lights as each vote comes in
+          // Use 'in' to detect the property even if it's an empty string
+          if ('ref1' in data && data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
+          if ('ref2' in data && data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
+          if ('ref3' in data && data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
           
-          const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
-          setTimeout(() => {
-            isFlashing = false;
-            loadState(); // Now it's safe to show the next lifter
-          }, durationMs);
-        }
-      });
+          // Final decision: stop the clock, flash result, reload state after banner expires
+          if (data.result && (data.result === 'good' || data.result === 'no_good')) {
+            displayTimer.stop();
+            displayTimer.reset(60);
+            showDecisionFlash(data.result);
+            
+            isFlashing = true; // Lock the display on this lifter
+            
+            const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
+            setTimeout(() => {
+              isFlashing = false;
+              loadState(); // Now it's safe to show the next lifter
+            }, durationMs);
+          }
+        });
 
-      socket.on('timer_start', (data) => { if (data.meetId !== meetId) return; displayTimer.start(data.seconds); });
-      socket.on('timer_stop',  (data) => { if (data.meetId !== meetId) return; displayTimer.stop(); });
-      socket.on('timer_reset', (data) => { if (data.meetId !== meetId) return; displayTimer.reset(data.seconds || 60); });
-      socket.on('timer',       (data) => { if (data.meetId !== meetId) return; displayTimer.seconds = data.seconds; displayTimer.render(); });
+        socket.on('timer_start', (data) => { if (data.meetId !== meetId) return; displayTimer.start(data.seconds); });
+        socket.on('timer_stop',  (data) => { if (data.meetId !== meetId) return; displayTimer.stop(); });
+        socket.on('timer_reset', (data) => { if (data.meetId !== meetId) return; displayTimer.reset(data.seconds || 60); });
+        socket.on('timer',       (data) => { if (data.meetId !== meetId) return; displayTimer.seconds = data.seconds; displayTimer.render(); });
 
-      socket.on('reconnected', () => {
-        loadState(); // Refresh TV state
-        document.body.classList.remove('offline-mode');
-        if (window.offlineTimeout) clearTimeout(window.offlineTimeout);
-      });
+        socket.on('reconnected', () => {
+          loadState(); // Refresh TV state
+          document.body.classList.remove('offline-mode');
+          if (window.offlineTimeout) clearTimeout(window.offlineTimeout);
+        });
 
-      socket.on('disconnected', () => {
-        // Show subtle alert after 5s
-        window.offlineTimeout = setTimeout(() => {
-          if (!socket.connected) document.body.classList.add('offline-mode');
-        }, 5000);
-      });
+        socket.on('disconnected', () => {
+          // Show subtle alert after 5s
+          window.offlineTimeout = setTimeout(() => {
+            if (!socket.connected) document.body.classList.add('offline-mode');
+          }, 5000);
+        });
+      }
 
       // Initial load
       loadState();

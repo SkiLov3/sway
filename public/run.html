@@ -169,6 +169,7 @@
     let timer = null;
     let pendingResetId = null;
     let activeFlights = ['A']; // Will be populated in init()
+    let socketListenersRegistered = false; // Guard against duplicate socket listeners
 
     function updateStatusUI() {
       const dot = document.getElementById('statusDot');
@@ -223,25 +224,31 @@
       );
       await loadOrder();
       
-      socket.on('attempt_updated', () => loadOrder());
-      socket.on('decision_made', (data) => {
-        loadOrder();
-        if (data && (data.result === 'good' || data.result === 'no_good')) {
-          timer.reset(60);
-          const btn = document.getElementById('timerToggleBtn');
-          if (btn) {
-            btn.innerHTML = '▶ Start';
-            btn.className = 'btn btn-success btn-sm';
-          }
-        }
-      });
+      // Register socket listeners only once (guard against re-registration on reconnect)
+      if (!socketListenersRegistered) {
+        socketListenersRegistered = true;
+        socket.connect();
 
-      socket.on('reconnected', () => {
-        showToast('Network restored — Syncing...', 'success');
-        init(); // Full refresh
-      });
-      socket.on('connected', updateStatusUI);
-      socket.on('disconnected', updateStatusUI);
+        socket.on('attempt_updated', () => loadOrder());
+        socket.on('decision_made', (data) => {
+          loadOrder();
+          if (data && (data.result === 'good' || data.result === 'no_good')) {
+            timer.reset(60);
+            const btn = document.getElementById('timerToggleBtn');
+            if (btn) {
+              btn.innerHTML = '▶ Start';
+              btn.className = 'btn btn-success btn-sm';
+            }
+          }
+        });
+
+        socket.on('reconnected', () => {
+          showToast('Network restored — Syncing...', 'success');
+          init(); // Full refresh of state, but listeners won't re-register
+        });
+        socket.on('connected', updateStatusUI);
+        socket.on('disconnected', updateStatusUI);
+      }
       updateStatusUI();
     }
 

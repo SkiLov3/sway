@@ -105,15 +105,16 @@
       }
     }
 
-    socket.connect();
-
+    // Register other listeners before connecting
     socket.on('reconnected', () => {
       showToast('Connected — Syncing...', 'success');
-      init(); // Refresh state
+      init();
     });
     socket.on('connected', updateStatusUI);
     socket.on('disconnected', updateStatusUI);
+    socket.connect();
     updateStatusUI();
+    init(); // Load initial state
 
     function updateStatusUI() {
       const dot = document.getElementById('statusDot');
@@ -183,8 +184,7 @@
       }
     }
 
-    // Load initial state
-    (async () => {
+    async function init() {
       try {
         const state = await API.getMeetState(meetId);
         if (state.current_lifter_id) {
@@ -193,7 +193,8 @@
           currentLifter = lifter;
           currentLiftType = state.current_lift_type;
           currentAttemptNum = state.current_attempt_number;
-          
+          currentAttemptData = att || null;
+
           document.getElementById('refLifterName').textContent = lifter.name;
           document.getElementById('refWeight').textContent = att?.weight ? `${att.weight} kg` : '—';
           document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[state.current_lift_type] || ''} — Attempt ${state.current_attempt_number}`;
@@ -202,11 +203,11 @@
           const div = lifter.division_name || '';
           const wc = lifter.weight_class_name || '';
           const flightLabel = lifter.flight ? `Flight ${lifter.flight}` : '';
-          const divParts = [flightLabel, div, wc].filter(Boolean);
-          document.getElementById('refDivisionInfo').textContent = divParts.join(' · ');
+          document.getElementById('refDivisionInfo').textContent = [flightLabel, div, wc].filter(Boolean).join(' · ');
+          updateButtonState();
         }
-      } catch (e) {}
-    })();
+      } catch (e) { console.log('Referee init error:', e); }
+    }
   </script>
 </body>
 </html>
