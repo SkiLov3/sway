@@ -218,6 +218,7 @@ class CompetitionTimer {
   start(seconds = null) {
     if (seconds !== null) this.seconds = seconds;
     this.running = true;
+    if (this.interval) clearInterval(this.interval);
     this.interval = setInterval(() => {
       this.seconds--;
       this.render();
