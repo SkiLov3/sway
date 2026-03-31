@@ -13,7 +13,7 @@
     .wc-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; }
     .wc-item input { background: transparent; border: none; color: var(--text-primary); font-size: 0.9rem; width: 100px; }
     .wc-item input:focus { outline: 1px solid var(--accent-primary); border-radius: 3px; }
-    .lifter-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px 60px 40px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+    .lifter-row { display: grid; grid-template-columns: 2fr 1fr 1fr 60px 80px 60px 40px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
     .lifter-row.header { font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-light); }
     .lifter-row input, .lifter-row select { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 8px; border-radius: var(--radius-sm); font-size: 0.85rem; }
     .lifter-row input:focus, .lifter-row select:focus { outline: none; border-color: var(--accent-primary); }
@@ -79,7 +79,7 @@
         <div class="csv-dropzone" id="csvDropzone" onclick="document.getElementById('csvFile').click()">
           <div style="font-size:2rem;margin-bottom:8px">📄</div>
           <div>Drop CSV file here or click to browse</div>
-          <div style="font-size:0.8rem;margin-top:8px">Columns: Name, Team, Division, Weight Class, Body Weight, Flight, Lot</div>
+          <div style="font-size:0.8rem;margin-top:8px">Columns: Name, Team, Division, Weight Class, Gender, Body Weight, Flight, Lot</div>
         </div>
         <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(this)">
         <div id="importResult" style="margin-top:12px"></div>
@@ -101,6 +101,7 @@
           <div>Name / Team</div>
           <div>Division</div>
           <div>Weight Class</div>
+          <div>Gender</div>
           <div>Body Weight</div>
           <div>Flight</div>
           <div>Lot</div>
@@ -286,6 +287,11 @@
             <option value="">—</option>
             ${getAllWeightClasses().map(wc => `<option value="${wc.id}" ${l.weight_class_id === wc.id ? 'selected' : ''}>${escapeHtml(wc.name)}</option>`).join('')}
           </select>
+          <select onchange="updateLifterField('${l.id}', 'gender', this.value)">
+            <option value="M" ${l.gender === 'M' ? 'selected' : ''}>M</option>
+            <option value="F" ${l.gender === 'F' ? 'selected' : ''}>F</option>
+            <option value="X" ${l.gender === 'X' ? 'selected' : ''}>X</option>
+          </select>
           <input type="number" step="0.1" value="${l.body_weight || ''}" placeholder="kg" onchange="updateLifterField('${l.id}', 'body_weight', parseFloat(this.value))">
           <select onchange="updateLifterField('${l.id}', 'flight', this.value)">
             ${['A','B','C','D','E'].map(f => `<option ${l.flight === f ? 'selected' : ''}>${f}</option>`).join('')}
@@ -353,7 +359,7 @@
     }
 
     function downloadTemplate() {
-      const csv = 'Name,Team,Division,Weight Class,Body Weight,Flight,Lot,Squat Opener,Bench Opener,Deadlift Opener\nJohn Doe,Team Alpha,Men\'s Raw Open,83,81.2,A,1,180,120,220\nJane Smith,Team Beta,Women\'s Raw Open,63,61.8,A,2,100,60,130\n';
+      const csv = 'Name,Team,Division,Weight Class,Gender,Body Weight,Flight,Lot,Squat Opener,Bench Opener,Deadlift Opener\nJohn Doe,Team Alpha,Men\'s Raw Open,83,M,81.2,A,1,180,120,220\nJane Smith,Team Beta,Women\'s Raw Open,63,F,61.8,A,2,100,60,130\n';
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);

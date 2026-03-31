@@ -1,5 +1,6 @@
 const express = require('express');
 const { getDb, generateId } = require('../db');
+const { calculateDOTS } = require('../utils/scoring');
 
 const router = express.Router();
 
@@ -241,6 +242,8 @@ router.get('/:id/results', (req, res) => {
     const bestDeadlift = getBest('deadlift');
     const total = (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) 
       ? bestSquat + bestBench + bestDeadlift : 0;
+      
+    const dots = calculateDOTS(total, lifter.body_weight, lifter.gender);
 
     return {
       ...lifter,
@@ -248,7 +251,8 @@ router.get('/:id/results', (req, res) => {
       bestSquat,
       bestBench,
       bestDeadlift,
-      total
+      total,
+      dots
     };
   });
 
@@ -262,13 +266,21 @@ router.get('/:id/results', (req, res) => {
 
   // Sort by total desc within each group, assign places
   Object.values(groups).forEach(group => {
-    group.sort((a, b) => b.total - a.total);
+    group.sort((a, b) => {
+      // Primary: Total desc
+      if (b.total !== a.total) return b.total - a.total;
+      // Secondary: Lighter body weight wins
+      return (a.body_weight || 9999) - (b.body_weight || 9999);
+    });
     group.forEach((lifter, idx) => {
       lifter.place = lifter.total > 0 ? idx + 1 : '-';
     });
   });
 
-  res.json({ results, groups });
+  // Calculate Best Lifters across the entire meet (sorted by DOTS)
+  const bestLifters = results.filter(r => r.total > 0).sort((a, b) => b.dots - a.dots);
+
+  res.json({ results, groups, bestLifters });
 });
 
 module.exports = router;

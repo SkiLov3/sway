@@ -57,16 +57,16 @@ router.post('/', (req, res) => {
   try {
     const db = getDb();
     const id = generateId();
-    const { meet_id, name, team, division_id, weight_class_id, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height } = req.body;
+    const { meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height } = req.body;
     
     if (!meet_id) return res.status(400).json({ error: 'meet_id is required' });
     if (!name || name.trim().length === 0) return res.status(400).json({ error: 'Lifter name is required' });
     
     db.prepare(`
-      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, meet_id, name.trim(), team || '', division_id || null, weight_class_id || null, 
-      body_weight || null, lot_number || null, flight || 'A', platform || 1, 
+      gender || 'M', body_weight || null, lot_number || null, flight || 'A', platform || 1, 
       rack_height || '', squat_rack_height || '', bench_rack_height || '');
 
     // Create placeholder attempts (3 per lift type)
@@ -92,19 +92,20 @@ router.put('/:id', (req, res) => {
     const lifter = db.prepare('SELECT * FROM lifters WHERE id = ?').get(req.params.id);
     if (!lifter) return res.status(404).json({ error: 'Lifter not found' });
 
-    const { name, team, division_id, weight_class_id, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height } = req.body;
+    const { name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height } = req.body;
     
     // Handle empty string for nullable FK fields — treat '' as null
     const resolvedDivision = division_id !== undefined ? (division_id || null) : lifter.division_id;
     const resolvedWeightClass = weight_class_id !== undefined ? (weight_class_id || null) : lifter.weight_class_id;
     
     db.prepare(`
-      UPDATE lifters SET name = ?, team = ?, division_id = ?, weight_class_id = ?, body_weight = ?,
+      UPDATE lifters SET name = ?, team = ?, division_id = ?, weight_class_id = ?, gender = ?, body_weight = ?,
       lot_number = ?, flight = ?, platform = ?, rack_height = ?, squat_rack_height = ?, bench_rack_height = ?
       WHERE id = ?
     `).run(
       name ?? lifter.name, team ?? lifter.team, 
       resolvedDivision, resolvedWeightClass,
+      gender ?? lifter.gender,
       body_weight ?? lifter.body_weight, lot_number ?? lifter.lot_number,
       flight ?? lifter.flight, platform ?? lifter.platform,
       rack_height ?? lifter.rack_height, squat_rack_height ?? lifter.squat_rack_height,
@@ -146,8 +147,8 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
     });
 
     const insertLifter = db.prepare(`
-      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, body_weight, lot_number, flight, platform)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertAttempt = db.prepare('INSERT INTO attempts (id, lifter_id, lift_type, attempt_number) VALUES (?, ?, ?, ?)');
 
@@ -177,6 +178,9 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
           const flight = record.Flight || record.flight || 'A';
           const platform = parseInt(record.Platform || record.platform || 1) || 1;
           
+          let parsedGender = (record.Gender || record.gender || record.Sex || record.sex || 'M').trim().toUpperCase().charAt(0);
+          if (!['M', 'F', 'X'].includes(parsedGender)) parsedGender = 'M';
+          
           // Try to match division
           const divName = record.Division || record.division || '';
           const matchedDiv = divisions.find(d => d.name.toLowerCase() === divName.toLowerCase());
@@ -192,7 +196,7 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
           insertLifter.run(
             lifterId, meetId, name, team,
             matchedDiv?.id || null, matchedWc?.id || null,
-            bodyWeight, lot, flight, platform
+            parsedGender, bodyWeight, lot, flight, platform
           );
 
           // Create attempt placeholders

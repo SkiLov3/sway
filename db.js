@@ -57,6 +57,7 @@ function initSchema() {
       team TEXT DEFAULT '',
       division_id TEXT,
       weight_class_id TEXT,
+      gender TEXT DEFAULT 'M' CHECK(gender IN ('M', 'F', 'X')),
       body_weight REAL,
       lot_number INTEGER,
       flight TEXT DEFAULT 'A',
@@ -98,6 +99,13 @@ function initSchema() {
       FOREIGN KEY (meet_id) REFERENCES meets(id) ON DELETE CASCADE
     );
   `);
+
+  // Simple migration strategy for existing DBs
+  try {
+    db.exec("ALTER TABLE lifters ADD COLUMN gender TEXT DEFAULT 'M' CHECK(gender IN ('M', 'F', 'X'))");
+  } catch (e) {
+    // Column likely already exists
+  }
 }
 
 function generateId() {
