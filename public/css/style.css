@@ -375,8 +375,8 @@ tr:hover {
 
 .attempt-best {
   background: var(--good-lift) !important;
-  color: white;
-  font-weight: 700;
+  color: var(--bg-primary);
+  font-weight: 900;
 }
 
 .total-cell {
