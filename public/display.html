@@ -11,10 +11,11 @@
     .display-fullscreen { display: flex; flex-direction: column; height: 100vh; background: #050510; }
 
     /* ── Top bar: meet name + timer ── */
-    .display-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 40px 10px; }
-    .display-meet-name { font-family: 'Roboto Condensed'; font-size: 0.9rem; color: var(--text-muted); }
-    .display-lift-info { color: var(--text-secondary); font-family: 'Roboto Condensed'; font-size: 1rem; font-weight: 700; margin-top: 2px; }
-    .display-timer-corner { font-family: 'Outfit'; font-weight: 900; font-size: 2.5rem; }
+    .display-top { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 14px 40px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .display-top-center { text-align: center; }
+    .display-meet-name { font-family: 'Outfit'; font-weight: 900; font-size: 1.6rem; color: var(--text-primary); letter-spacing: -0.5px; line-height: 1.1; }
+    .display-lift-info { color: var(--accent-secondary); font-family: 'Roboto Condensed'; font-size: 0.9rem; font-weight: 700; margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
+    .display-timer-corner { font-family: 'Outfit'; font-weight: 900; font-size: 2.5rem; text-align: right; }
 
     /* ── Main body: lifter + plates + ref lights ── */
     .display-body { flex: 1; display: flex; flex-direction: row; align-items: center; padding: 0 40px; gap: 32px; min-height: 0; }
@@ -83,8 +84,8 @@
   <div class="display-fullscreen" id="display" ondblclick="toggleFullscreen()">
     <!-- Top bar -->
     <div class="display-top">
-      <div>
-        <div class="display-meet-name" id="displayMeetName"></div>
+      <div class="display-top-center">
+        <div class="display-meet-name" id="displayMeetName">SWAY</div>
         <div class="display-lift-info" id="displayLiftInfo"></div>
       </div>
       <div class="display-timer-corner timer" id="displayTimer">1:00</div>
