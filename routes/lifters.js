@@ -183,6 +183,13 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
   const db = getDb();
   const meetId = req.params.meetId;
 
+  // Verify meet exists
+  const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(meetId);
+  if (!meet) {
+    try { if (req.file) fs.unlinkSync(req.file.path); } catch (_) {}
+    return res.status(404).json({ error: 'Meet not found' });
+  }
+
   try {
     const csvContent = fs.readFileSync(req.file.path, 'utf-8');
     const records = parse(csvContent, { 

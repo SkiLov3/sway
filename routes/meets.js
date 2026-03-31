@@ -257,6 +257,11 @@ router.delete('/weight-classes/:wcId', (req, res) => {
 
 router.get('/:id/state', (req, res) => {
   const db = getDb();
+  
+  // Verify meet exists to avoid FK error on auto-vivify
+  const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
+  if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
   let state = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
   if (!state) {
     db.prepare('INSERT INTO meet_state (meet_id) VALUES (?)').run(req.params.id);
@@ -269,6 +274,10 @@ router.put('/:id/state', (req, res) => {
   const db = getDb();
   const { current_platform, current_lift_type, current_attempt_number, current_flight, current_lifter_id, clock_seconds, clock_running } = req.body;
   
+  // Verify meet exists to avoid FK error on auto-vivify
+  const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
+  if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
   if (current_lift_type !== undefined && !['squat', 'bench', 'deadlift'].includes(current_lift_type)) {
     return res.status(400).json({ error: 'Invalid lift type' });
   }
