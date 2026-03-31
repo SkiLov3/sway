@@ -67,6 +67,16 @@
           <input class="form-input" id="editMeetFederation" placeholder="USAPL, USPA, APF, etc.">
         </div>
       </div>
+      <div class="form-row" style="margin-top:12px">
+        <div class="form-group">
+          <label class="form-label">Short Join Code <span style="color:var(--text-muted);font-weight:400">(for typing on TV — e.g. STATES26)</span></label>
+          <input class="form-input" id="editShortCode" placeholder="e.g. STATES26" style="text-transform:uppercase" maxlength="12">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Decision Display Time <span style="color:var(--text-muted);font-weight:400">(seconds — Good/No Lift banner)</span></label>
+          <input class="form-input" type="number" id="editDecisionSecs" placeholder="15" min="1" max="120">
+        </div>
+      </div>
     </div>
 
     <div class="setup-grid">
@@ -145,7 +155,10 @@
         document.getElementById('editMeetName').value = meet.name;
         document.getElementById('editMeetDate').value = meet.date;
         document.getElementById('editMeetFederation').value = meet.federation;
+        document.getElementById('editShortCode').value = meet.short_code || '';
+        document.getElementById('editDecisionSecs').value = meet.decision_display_seconds ?? 15;
         document.title = `${meet.name} Setup — SWAY`;
+        updateJoinUrl();
         
         await loadDivisions();
         await loadLifters();
@@ -155,14 +168,26 @@
       }
     }
 
+    async function updateJoinUrl() {
+      try {
+        const info = await API.getNetworkInfo();
+        const code = document.getElementById('editShortCode').value.toUpperCase().trim();
+        const el = document.getElementById('joinUrlPreview');
+        if (el) el.textContent = code ? `${info.baseUrl}/join/${code}` : '(set a code above to generate a short URL)';
+      } catch(e) {}
+    }
+
     async function saveMeetInfo() {
       try {
         meet = await API.updateMeet(meetId, {
           name: document.getElementById('editMeetName').value,
           date: document.getElementById('editMeetDate').value,
-          federation: document.getElementById('editMeetFederation').value
+          federation: document.getElementById('editMeetFederation').value,
+          short_code: document.getElementById('editShortCode').value,
+          decision_display_seconds: parseInt(document.getElementById('editDecisionSecs').value) || 15
         });
         document.getElementById('meetTitle').textContent = meet.name;
+        updateJoinUrl();
         showToast('Meet info saved');
       } catch (err) {
         showToast('Failed to save: ' + err.message, 'error');

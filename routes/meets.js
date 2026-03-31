@@ -65,7 +65,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const db = getDb();
-    const { name, date, federation, status, plates_config } = req.body;
+    const { name, date, federation, status, plates_config, short_code, decision_display_seconds } = req.body;
     const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
     if (!meet) return res.status(404).json({ error: 'Meet not found' });
 
@@ -75,6 +75,27 @@ router.put('/:id', (req, res) => {
       if (name.trim().length > MAX_MEET_NAME) return res.status(400).json({ error: `Meet name must be ${MAX_MEET_NAME} characters or fewer` });
     }
     if (federation && federation.length > MAX_FED) return res.status(400).json({ error: `Federation must be ${MAX_FED} characters or fewer` });
+
+    // Validate short_code: alphanumeric only, max 12 chars
+    let resolvedShortCode = meet.short_code ?? '';
+    if (short_code !== undefined) {
+      const code = short_code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (code.length > 12) return res.status(400).json({ error: 'Short code must be 12 characters or fewer' });
+      // Check uniqueness if non-empty
+      if (code !== '') {
+        const existing = db.prepare('SELECT id FROM meets WHERE short_code = ? AND id != ?').get(code, req.params.id);
+        if (existing) return res.status(409).json({ error: `Short code '${code}' is already in use` });
+      }
+      resolvedShortCode = code;
+    }
+
+    // Validate decision_display_seconds
+    let resolvedFlashSecs = meet.decision_display_seconds ?? 15;
+    if (decision_display_seconds !== undefined) {
+      const s = parseInt(decision_display_seconds);
+      if (isNaN(s) || s < 1 || s > 120) return res.status(400).json({ error: 'Decision display time must be between 1 and 120 seconds' });
+      resolvedFlashSecs = s;
+    }
 
     // Validate plates_config if provided
     let platesConfigStr = meet.plates_config;
@@ -91,19 +112,48 @@ router.put('/:id', (req, res) => {
     }
 
     db.prepare(`
-      UPDATE meets SET name = ?, date = ?, federation = ?, status = ?, plates_config = ? WHERE id = ?
+      UPDATE meets SET name = ?, date = ?, federation = ?, status = ?, plates_config = ?,
+        short_code = ?, decision_display_seconds = ? WHERE id = ?
     `).run(
       name ?? meet.name,
       date ?? meet.date,
       federation ?? meet.federation,
       status ?? meet.status,
       platesConfigStr,
+      resolvedShortCode,
+      resolvedFlashSecs,
       req.params.id
     );
 
     res.json(db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id));
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Short-code redirect: /join/CODE → referee page
+router.get('/join/:code', (req, res) => {
+  try {
+    const db = getDb();
+    const code = req.params.code.toUpperCase();
+    const meet = db.prepare("SELECT id FROM meets WHERE short_code = ? AND short_code != ''").get(code);
+    if (!meet) return res.status(404).send(`<h2>Meet code "${code}" not found.</h2><p>Ask your meet director for the correct code.</p>`);
+    res.redirect(`/referee.html?meetId=${meet.id}&platform=1`);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
+// Short-code redirect: /tv/CODE → display page
+router.get('/tv/:code', (req, res) => {
+  try {
+    const db = getDb();
+    const code = req.params.code.toUpperCase();
+    const meet = db.prepare("SELECT id FROM meets WHERE short_code = ? AND short_code != ''").get(code);
+    if (!meet) return res.status(404).send(`<h2>Meet code "${code}" not found.</h2><p>Ask your meet director for the correct code.</p>`);
+    res.redirect(`/display.html?meetId=${meet.id}&platform=1`);
+  } catch (err) {
+    res.status(500).send('Server error');
   }
 });
 

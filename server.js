@@ -36,6 +36,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/meets', require('./routes/meets'));
 app.use('/api/lifters', require('./routes/lifters'));
 app.use('/api/attempts', require('./routes/attempts'));
+app.use('/join', require('./routes/meets'));
+app.use('/tv', require('./routes/meets'));
 
 // ── Network helpers ────────────────────────────────────────────────────────────
 function getLocalIP() {

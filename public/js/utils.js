@@ -161,22 +161,45 @@ async function showQRCode(e) {
   const meetId = getParam('meetId');
   try {
     const info = await API.getNetworkInfo();
+    let meet = null;
+    try {
+      meet = await API.getMeet(meetId);
+    } catch(e) {}
+    
+    // Default URLs
     const paths = [
-      { name: 'Display (TV)', path: `/display.html?meetId=${meetId}&platform=1` },
-      { name: 'Referee', path: `/referee.html?meetId=${meetId}&platform=1` },
-      { name: 'Results', path: `/results.html?meetId=${meetId}` },
+      { name: 'Display (TV)', path: `/display.html?meetId=${meetId}&platform=1`, displayUrl: '' },
+      { name: 'Referee', path: `/referee.html?meetId=${meetId}&platform=1`, displayUrl: '' },
+      { name: 'Results', path: `/results.html?meetId=${meetId}`, displayUrl: '' },
     ];
     
-    let html = '<div class="modal-title">📱 QR Codes for Device Access</div>';
-    html += `<p style="color:var(--text-secondary);margin-bottom:16px">Base URL: <strong>${info.baseUrl}</strong></p>`;
+    // Override with short URLs if short code exists
+    if (meet && meet.short_code) {
+      paths[0].path = `/tv/${meet.short_code}`;
+      paths[1].path = `/join/${meet.short_code}`;
+      paths[0].displayUrl = `${info.baseUrl}/tv/${meet.short_code}`;
+      paths[1].displayUrl = `${info.baseUrl}/join/${meet.short_code}`;
+    }
+    
+    let html = '<div class="modal-title">📱 QR Codes & Short URLs</div>';
+    html += `<p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.85rem">Base URL: <strong>${info.baseUrl}</strong></p>`;
+    
+    // Show short code hint if one exists
+    if (meet && meet.short_code) {
+      html += `<div style="background:var(--bg-secondary);padding:10px;border-radius:6px;margin-bottom:20px;text-align:center;border:1px solid var(--accent-secondary)">
+        <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Meet Code</div>
+        <div style="font-size:1.5rem;font-weight:900;font-family:'Outfit';color:var(--text-primary)">${meet.short_code}</div>
+      </div>`;
+    }
     
     for (const p of paths) {
       const qr = await API.getQRCode(p.path);
+      const urlText = p.displayUrl || qr.url;
       html += `
         <div style="margin-bottom:20px;text-align:center">
           <h3 style="margin-bottom:8px">${p.name}</h3>
-          <img src="${qr.qr}" alt="${p.name} QR" style="border-radius:8px">
-          <p style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">${qr.url}</p>
+          <img src="${qr.qr}" alt="${p.name} QR" style="border-radius:8px;max-width:200px">
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-top:4px;word-break:break-all">${urlText}</p>
         </div>
       `;
     }

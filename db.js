@@ -43,6 +43,8 @@ function initSchema() {
       federation TEXT DEFAULT '',
       status TEXT DEFAULT 'setup',
       plates_config TEXT DEFAULT '{}',
+      short_code TEXT DEFAULT '',
+      decision_display_seconds INTEGER DEFAULT 15,
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -130,6 +132,16 @@ function initSchema() {
       version: 1,
       description: 'Add gender column to lifters',
       sql: "ALTER TABLE lifters ADD COLUMN gender TEXT DEFAULT 'M' CHECK(gender IN ('M', 'F', 'X'))",
+    },
+    {
+      version: 2,
+      description: 'Add short_code to meets',
+      sql: "ALTER TABLE meets ADD COLUMN short_code TEXT DEFAULT ''; CREATE UNIQUE INDEX IF NOT EXISTS idx_meets_short_code ON meets(short_code) WHERE short_code != '';",
+    },
+    {
+      version: 3,
+      description: 'Add decision_display_seconds to meets',
+      sql: "ALTER TABLE meets ADD COLUMN decision_display_seconds INTEGER DEFAULT 15",
     },
     // Add future migrations here: { version: N, description: '...', sql: '...' }
   ];

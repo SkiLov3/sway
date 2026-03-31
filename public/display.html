@@ -164,7 +164,11 @@
         const meet = await API.getMeet(meetId);
         document.getElementById('displayMeetName').textContent = meet.name;
         document.title = `${meet.name} — Display — SWAY`;
-      } catch (e) {}
+        // Store the configuration globally so the socket handler can use it
+        window.decisionDisplaySeconds = meet.decision_display_seconds ?? 15;
+      } catch (e) {
+        window.decisionDisplaySeconds = 15;
+      }
 
       displayTimer = new CompetitionTimer(document.getElementById('displayTimer'));
       displayTimer.render();
@@ -299,10 +303,16 @@
     function showDecisionFlash(result) {
       const overlay = document.getElementById('decisionOverlay');
       const flash = document.getElementById('decisionFlash');
+      
+      // Clear any existing timeout to avoid premature hiding if multiple decisions arrive
+      if (window.fadeTimeout) clearTimeout(window.fadeTimeout);
+      
       flash.textContent = result === 'good' ? 'GOOD LIFT' : 'NO LIFT';
       flash.className = `decision-flash ${result === 'good' ? 'decision-good' : 'decision-bad'}`;
       overlay.classList.add('show');
-      setTimeout(() => overlay.classList.remove('show'), 3000);
+      
+      const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
+      window.fadeTimeout = setTimeout(() => overlay.classList.remove('show'), durationMs);
     }
 
     function toggleFullscreen() {
