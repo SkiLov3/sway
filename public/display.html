@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Display — SWAY</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { overflow: hidden; cursor: none; background: #050510; }
+    body::before { display: none; }
+    .display-fullscreen { background: #050510; }
+    .display-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 40px; }
+    .display-meet-name { font-family: 'Roboto Condensed'; font-size: 1rem; color: var(--text-muted); }
+    .display-timer-corner { font-family: 'Outfit'; font-weight: 900; font-size: 2.5rem; }
+    .display-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .display-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 10px 40px 20px; gap: 20px; }
+    .display-order-table { font-family: 'Roboto Condensed'; font-size: 0.85rem; }
+    .display-order-table th { font-size: 0.7rem; padding: 4px 8px; }
+    .display-order-table td { padding: 4px 8px; }
+    .display-order-row.current { background: var(--accent-glow); font-weight: 700; }
+    .prediction { font-size: 1.1rem; }
+    .display-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+    .display-overlay.show { opacity: 1; }
+    .decision-flash { font-family: 'Outfit'; font-weight: 900; font-size: 5rem; padding: 40px 80px; border-radius: 20px; }
+    .decision-good { background: rgba(39,174,96,0.95); color: white; }
+    .decision-bad { background: rgba(192,57,43,0.95); color: white; }
+    .fullscreen-hint { position: fixed; bottom: 10px; right: 10px; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; z-index: 50; opacity: 0.5; }
+    .fullscreen-hint:hover { opacity: 1; cursor: default; }
+  </style>
+</head>
+<body>
+  <div class="display-fullscreen" id="display" ondblclick="toggleFullscreen()">
+    <div class="display-top">
+      <div>
+        <div class="display-meet-name" id="displayMeetName"></div>
+        <div id="displayLiftInfo" style="color:var(--text-secondary);font-family:'Roboto Condensed';font-size:1.1rem;font-weight:700;margin-top:2px"></div>
+      </div>
+      <div class="display-timer-corner timer" id="displayTimer">1:00</div>
+    </div>
+
+    <div class="display-body">
+      <div class="display-current-lifter">
+        <div class="display-lifter-name" id="displayLifterName">Waiting...</div>
+        <div class="display-attempt-info" id="displayAttemptInfo"></div>
+        <div class="display-weight" id="displayWeight">—</div>
+      </div>
+
+      <div id="displayPlateLoader" style="padding:0 40px"></div>
+
+      <div class="ref-lights ref-lights-lg" id="displayRefLights">
+        <div class="ref-light waiting" id="dispRef1"></div>
+        <div class="ref-light waiting" id="dispRef2"></div>
+        <div class="ref-light waiting" id="dispRef3"></div>
+      </div>
+
+      <div class="prediction" id="displayPrediction"></div>
+    </div>
+
+    <div class="display-bottom">
+      <!-- On Deck -->
+      <div class="ondeck-item">
+        <div class="ondeck-label">On Deck</div>
+        <div class="ondeck-name" id="onDeckName">—</div>
+        <div class="ondeck-weight" id="onDeckWeight"></div>
+      </div>
+      
+      <!-- Center - mini order -->
+      <div style="text-align:center">
+        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Flight Order</div>
+        <div id="miniOrder" style="font-size:0.8rem;color:var(--text-secondary)"></div>
+      </div>
+      
+      <!-- In the Hole -->
+      <div class="ondeck-item" style="text-align:right">
+        <div class="ondeck-label">In the Hole</div>
+        <div class="ondeck-name" id="inHoleName">—</div>
+        <div class="ondeck-weight" id="inHoleWeight"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="display-overlay" id="decisionOverlay">
+    <div class="decision-flash" id="decisionFlash"></div>
+  </div>
+
+  <div class="fullscreen-hint" ondblclick="toggleFullscreen()">Double-click for fullscreen</div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const meetId = getParam('meetId');
+    const platform = parseInt(getParam('platform') || '1');
+    let displayTimer = null;
+
+    async function init() {
+      try {
+        const meet = await API.getMeet(meetId);
+        document.getElementById('displayMeetName').textContent = meet.name;
+        document.title = `${meet.name} — Display — SWAY`;
+      } catch (e) {}
+
+      displayTimer = new CompetitionTimer(document.getElementById('displayTimer'));
+      displayTimer.render();
+
+      socket.connect();
+      
+      socket.on('current_lifter', (data) => {
+        if (data.meetId !== meetId) return;
+        updateDisplay(data);
+      });
+
+      socket.on('decision_made', (data) => {
+        if (data.meetId !== meetId) return;
+        // Show ref lights
+        if (data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
+        if (data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
+        if (data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
+        
+        // Flash decision
+        if (data.result) {
+          showDecisionFlash(data.result);
+        }
+      });
+
+      socket.on('timer_start', (data) => {
+        if (data.meetId !== meetId) return;
+        displayTimer.start(data.seconds);
+      });
+      socket.on('timer_stop', (data) => {
+        if (data.meetId !== meetId) return;
+        displayTimer.stop();
+      });
+      socket.on('timer_reset', (data) => {
+        if (data.meetId !== meetId) return;
+        displayTimer.reset(data.seconds || 60);
+      });
+      socket.on('timer', (data) => {
+        if (data.meetId !== meetId) return;
+        displayTimer.seconds = data.seconds;
+        displayTimer.render();
+      });
+
+      // Load initial state
+      try {
+        const state = await API.getMeetState(meetId);
+        const order = await API.getLiftingOrder(meetId, platform, state.current_flight || 'A', state.current_lift_type || 'squat', state.current_attempt_number || 1);
+        if (order.length > 0) {
+          const currentIdx = order.findIndex(l => l.id === state.current_lifter_id);
+          const idx = currentIdx >= 0 ? currentIdx : 0;
+          updateDisplay({
+            lifter: order[idx],
+            attempt: order[idx]?.currentAttempt,
+            liftType: state.current_lift_type || 'squat',
+            attemptNumber: state.current_attempt_number || 1,
+            liftingOrder: order
+          });
+        }
+      } catch (e) { console.log('No initial state'); }
+    }
+
+    function updateDisplay(data) {
+      const { lifter, attempt, liftType, attemptNumber, liftingOrder } = data;
+      
+      if (!lifter) return;
+      
+      // Reset ref lights
+      [1,2,3].forEach(n => {
+        document.getElementById(`dispRef${n}`).className = 'ref-light waiting';
+      });
+
+      document.getElementById('displayLifterName').textContent = lifter.name;
+      document.getElementById('displayAttemptInfo').textContent = 
+        `${lifter.team ? lifter.team + ' · ' : ''}${lifter.division_name || ''} ${lifter.weight_class_name ? '· ' + lifter.weight_class_name : ''}`;
+      
+      const weight = attempt?.weight || lifter.currentWeight || 0;
+      document.getElementById('displayWeight').innerHTML = weight > 0 ? `${weight} <span>kg</span>` : '—';
+      document.getElementById('displayLiftInfo').textContent = `${LIFT_NAMES[liftType] || liftType} — Attempt ${attemptNumber}`;
+      
+      // Plate loader
+      if (weight > 0) {
+        document.getElementById('displayPlateLoader').innerHTML = renderPlateLoader(weight);
+      } else {
+        document.getElementById('displayPlateLoader').innerHTML = '';
+      }
+
+      // On deck / in the hole
+      if (liftingOrder) {
+        const currentIdx = liftingOrder.findIndex(l => l.id === lifter.id);
+        const onDeck = liftingOrder[currentIdx + 1];
+        const inHole = liftingOrder[currentIdx + 2];
+        
+        document.getElementById('onDeckName').textContent = onDeck?.name || '—';
+        document.getElementById('onDeckWeight').textContent = onDeck?.currentWeight ? `${onDeck.currentWeight} kg` : '';
+        document.getElementById('inHoleName').textContent = inHole?.name || '—';
+        document.getElementById('inHoleWeight').textContent = inHole?.currentWeight ? `${inHole.currentWeight} kg` : '';
+        
+        // Mini order
+        const miniHtml = liftingOrder.slice(0, 8).map((l, i) => {
+          const isCurrent = l.id === lifter.id;
+          return `<span style="${isCurrent ? 'color:var(--accent-secondary);font-weight:700' : ''}">${l.name.split(' ')[0]}${l.currentWeight ? ` (${l.currentWeight})` : ''}</span>`;
+        }).join(' → ');
+        document.getElementById('miniOrder').innerHTML = miniHtml;
+      }
+    }
+
+    function showDecisionFlash(result) {
+      const overlay = document.getElementById('decisionOverlay');
+      const flash = document.getElementById('decisionFlash');
+      flash.textContent = result === 'good' ? 'GOOD LIFT' : 'NO LIFT';
+      flash.className = `decision-flash ${result === 'good' ? 'decision-good' : 'decision-bad'}`;
+      overlay.classList.add('show');
+      
+      setTimeout(() => overlay.classList.remove('show'), 3000);
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

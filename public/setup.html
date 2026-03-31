@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meet Setup — SWAY</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .setup-grid { grid-template-columns: 1fr; } }
+    .division-card { margin-bottom: 12px; }
+    .wc-list { margin-top: 8px; }
+    .wc-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; }
+    .wc-item input { background: transparent; border: none; color: var(--text-primary); font-size: 0.9rem; width: 100px; }
+    .wc-item input:focus { outline: 1px solid var(--accent-primary); border-radius: 3px; }
+    .lifter-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px 60px 40px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+    .lifter-row.header { font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-light); }
+    .lifter-row input, .lifter-row select { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 8px; border-radius: var(--radius-sm); font-size: 0.85rem; }
+    .lifter-row input:focus, .lifter-row select:focus { outline: none; border-color: var(--accent-primary); }
+    .delete-btn { background: none; border: none; color: var(--no-lift); cursor: pointer; font-size: 1.1rem; padding: 4px; }
+    .delete-btn:hover { color: #ff6b6b; }
+    .csv-dropzone { border: 2px dashed var(--border-light); border-radius: var(--radius-md); padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; color: var(--text-muted); }
+    .csv-dropzone:hover, .csv-dropzone.dragover { border-color: var(--accent-primary); background: var(--accent-glow); color: var(--text-primary); }
+    .preset-btn { padding: 4px 10px; font-size: 0.75rem; margin: 2px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <div class="header-title" id="meetTitle">Meet Setup</div>
+    <div class="header-actions">
+      <button class="btn btn-success btn-sm" onclick="startMeet()">▶ Start Meet</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Meet Info -->
+    <div class="card mb-16" id="meetInfoCard">
+      <div class="card-header">
+        <div class="card-title">📋 Meet Information</div>
+        <button class="btn btn-outline btn-sm" onclick="saveMeetInfo()">💾 Save</button>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Meet Name</label>
+          <input class="form-input" id="editMeetName">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input class="form-input" type="date" id="editMeetDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Federation</label>
+          <input class="form-input" id="editMeetFederation" placeholder="USAPL, USPA, APF, etc.">
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-grid">
+      <!-- Divisions & Weight Classes -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📂 Divisions & Weight Classes</div>
+          <div>
+            <button class="btn btn-outline btn-sm" onclick="showPresets()">📋 Presets</button>
+            <button class="btn btn-primary btn-sm" onclick="addDivision()">+ Division</button>
+          </div>
+        </div>
+        <div id="divisionsContainer">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- CSV Import -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📤 Import Lifters (CSV)</div>
+        </div>
+        <div class="csv-dropzone" id="csvDropzone" onclick="document.getElementById('csvFile').click()">
+          <div style="font-size:2rem;margin-bottom:8px">📄</div>
+          <div>Drop CSV file here or click to browse</div>
+          <div style="font-size:0.8rem;margin-top:8px">Columns: Name, Team, Division, Weight Class, Body Weight, Flight, Lot</div>
+        </div>
+        <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(this)">
+        <div id="importResult" style="margin-top:12px"></div>
+        
+        <div style="margin-top:16px">
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">📥 Download CSV Template</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lifters -->
+    <div class="card mt-24">
+      <div class="card-header">
+        <div class="card-title">🏋️ Lifters (<span id="lifterCount">0</span>)</div>
+        <button class="btn btn-primary btn-sm" onclick="addLifter()">+ Add Lifter</button>
+      </div>
+      <div id="liftersContainer">
+        <div class="lifter-row header">
+          <div>Name / Team</div>
+          <div>Division</div>
+          <div>Weight Class</div>
+          <div>Body Weight</div>
+          <div>Flight</div>
+          <div>Lot</div>
+          <div></div>
+        </div>
+        <div id="liftersList"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const meetId = getParam('meetId');
+    if (!meetId) window.location = '/';
+    
+    let meet = null;
+    let divisions = [];
+    let lifters = [];
+
+    createSidebar(meetId, '', 'setup');
+
+    async function init() {
+      try {
+        meet = await API.getMeet(meetId);
+        document.getElementById('meetTitle').textContent = meet.name;
+        document.getElementById('editMeetName').value = meet.name;
+        document.getElementById('editMeetDate').value = meet.date;
+        document.getElementById('editMeetFederation').value = meet.federation;
+        document.title = `${meet.name} Setup — SWAY`;
+        
+        await loadDivisions();
+        await loadLifters();
+        setupDragDrop();
+      } catch (err) {
+        showToast('Failed to load meet: ' + err.message, 'error');
+      }
+    }
+
+    async function saveMeetInfo() {
+      try {
+        meet = await API.updateMeet(meetId, {
+          name: document.getElementById('editMeetName').value,
+          date: document.getElementById('editMeetDate').value,
+          federation: document.getElementById('editMeetFederation').value
+        });
+        document.getElementById('meetTitle').textContent = meet.name;
+        showToast('Meet info saved');
+      } catch (err) {
+        showToast('Failed to save: ' + err.message, 'error');
+      }
+    }
+
+    async function loadDivisions() {
+      divisions = await API.getDivisions(meetId);
+      renderDivisions();
+    }
+
+    function renderDivisions() {
+      const container = document.getElementById('divisionsContainer');
+      if (divisions.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-state-text">No divisions yet. Add one or use a preset.</div></div>';
+        return;
+      }
+
+      container.innerHTML = divisions.map(div => `
+        <div class="card division-card" style="background:var(--bg-primary);padding:14px;margin-bottom:8px">
+          <div class="flex-between" style="margin-bottom:8px">
+            <input value="${escapeHtml(div.name)}" style="background:transparent;border:none;color:var(--text-primary);font-weight:700;font-size:1rem;flex:1"
+              onchange="updateDivision('${div.id}', this.value)">
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-outline btn-sm" onclick="addWeightClass('${div.id}')">+ WC</button>
+              <button class="delete-btn" onclick="deleteDivision('${div.id}')">🗑</button>
+            </div>
+          </div>
+          <div class="wc-list">
+            ${(div.weight_classes || []).map(wc => `
+              <div class="wc-item">
+                <input value="${escapeHtml(wc.name)}" placeholder="e.g. 83kg" onchange="updateWeightClass('${wc.id}', this.value)">
+                <button class="delete-btn" onclick="deleteWeightClass('${wc.id}')" style="font-size:0.8rem">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function addDivision() {
+      try {
+        await API.createDivision(meetId, { name: 'New Division' });
+        await loadDivisions();
+        showToast('Division added');
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function updateDivision(divId, name) {
+      try { await API.updateDivision(divId, { name }); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function deleteDivision(divId) {
+      if (!confirm('Delete this division and all its weight classes?')) return;
+      try { await API.deleteDivision(divId); await loadDivisions(); showToast('Division deleted'); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function addWeightClass(divId) {
+      try { await API.createWeightClass(divId, { name: '' }); await loadDivisions(); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function updateWeightClass(wcId, name) {
+      try { await API.updateWeightClass(wcId, { name }); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function deleteWeightClass(wcId) {
+      try { await API.deleteWeightClass(wcId); await loadDivisions(); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // Presets
+    function showPresets() {
+      openModal(`
+        <div class="modal-title">📋 Division Presets</div>
+        <p style="color:var(--text-secondary);margin-bottom:16px">Select a preset to auto-populate divisions and weight classes.</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-outline" onclick="applyPreset('usapl_mens')">USAPL Men's</button>
+          <button class="btn btn-outline" onclick="applyPreset('usapl_womens')">USAPL Women's</button>
+          <button class="btn btn-outline" onclick="applyPreset('uspa_mens')">USPA Men's</button>
+          <button class="btn btn-outline" onclick="applyPreset('uspa_womens')">USPA Women's</button>
+          <button class="btn btn-outline" onclick="applyPreset('ipf_mens')">IPF Men's</button>
+          <button class="btn btn-outline" onclick="applyPreset('ipf_womens')">IPF Women's</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        </div>
+      `);
+    }
+
+    const PRESETS = {
+      usapl_mens: { name: "Men's Raw Open", wcs: ['52', '56', '60', '67.5', '75', '82.5', '90', '100', '110', '125', '140', '140+'] },
+      usapl_womens: { name: "Women's Raw Open", wcs: ['44', '48', '52', '56', '60', '67.5', '75', '82.5', '90', '90+'] },
+      uspa_mens: { name: "Men's Open", wcs: ['52', '56', '60', '67.5', '75', '82.5', '90', '100', '110', '125', '140', '140+'] },
+      uspa_womens: { name: "Women's Open", wcs: ['44', '48', '52', '56', '60', '67.5', '75', '82.5', '90', '90+'] },
+      ipf_mens: { name: "Men's Open", wcs: ['53', '59', '66', '74', '83', '93', '105', '120', '120+'] },
+      ipf_womens: { name: "Women's Open", wcs: ['43', '47', '52', '57', '63', '69', '76', '84', '84+'] },
+    };
+
+    async function applyPreset(key) {
+      const preset = PRESETS[key];
+      try {
+        const div = await API.createDivision(meetId, { name: preset.name });
+        for (const wc of preset.wcs) {
+          await API.createWeightClass(div.id, { name: wc, max_weight: parseFloat(wc) || 999 });
+        }
+        await loadDivisions();
+        closeModal();
+        showToast(`Added ${preset.name} with ${preset.wcs.length} weight classes`);
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // Lifters
+    async function loadLifters() {
+      lifters = await API.getLifters(meetId);
+      document.getElementById('lifterCount').textContent = lifters.length;
+      renderLifters();
+    }
+
+    function renderLifters() {
+      const list = document.getElementById('liftersList');
+      if (lifters.length === 0) {
+        list.innerHTML = '<div class="empty-state" style="padding:20px"><div class="empty-state-text">No lifters yet. Add manually or import CSV.</div></div>';
+        return;
+      }
+
+      list.innerHTML = lifters.map(l => `
+        <div class="lifter-row" data-id="${l.id}">
+          <div>
+            <input value="${escapeHtml(l.name)}" placeholder="Lifter name" onchange="updateLifterField('${l.id}', 'name', this.value)" style="width:60%">
+            <input value="${escapeHtml(l.team || '')}" placeholder="Team" onchange="updateLifterField('${l.id}', 'team', this.value)" style="width:35%">
+          </div>
+          <select onchange="updateLifterField('${l.id}', 'division_id', this.value)">
+            <option value="">—</option>
+            ${divisions.map(d => `<option value="${d.id}" ${l.division_id === d.id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}
+          </select>
+          <select onchange="updateLifterField('${l.id}', 'weight_class_id', this.value)">
+            <option value="">—</option>
+            ${getAllWeightClasses().map(wc => `<option value="${wc.id}" ${l.weight_class_id === wc.id ? 'selected' : ''}>${escapeHtml(wc.name)}</option>`).join('')}
+          </select>
+          <input type="number" step="0.1" value="${l.body_weight || ''}" placeholder="kg" onchange="updateLifterField('${l.id}', 'body_weight', parseFloat(this.value))">
+          <select onchange="updateLifterField('${l.id}', 'flight', this.value)">
+            ${['A','B','C','D','E'].map(f => `<option ${l.flight === f ? 'selected' : ''}>${f}</option>`).join('')}
+          </select>
+          <input type="number" value="${l.lot_number || ''}" placeholder="#" onchange="updateLifterField('${l.id}', 'lot_number', parseInt(this.value))" style="width:50px">
+          <button class="delete-btn" onclick="deleteLifter('${l.id}')">🗑</button>
+        </div>
+      `).join('');
+    }
+
+    function getAllWeightClasses() {
+      const wcs = [];
+      divisions.forEach(d => (d.weight_classes || []).forEach(wc => wcs.push({ ...wc, divName: d.name })));
+      return wcs;
+    }
+
+    async function addLifter() {
+      try {
+        await API.createLifter({ meet_id: meetId, name: 'New Lifter' });
+        await loadLifters();
+        showToast('Lifter added');
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function updateLifterField(id, field, value) {
+      try { await API.updateLifter(id, { [field]: value }); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function deleteLifter(id) {
+      if (!confirm('Delete this lifter?')) return;
+      try { await API.deleteLifter(id); await loadLifters(); showToast('Lifter removed'); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // CSV Import
+    function setupDragDrop() {
+      const dz = document.getElementById('csvDropzone');
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+      dz.addEventListener('drop', e => {
+        e.preventDefault();
+        dz.classList.remove('dragover');
+        if (e.dataTransfer.files.length) importFile(e.dataTransfer.files[0]);
+      });
+    }
+
+    function importCSV(input) {
+      if (input.files.length) importFile(input.files[0]);
+    }
+
+    async function importFile(file) {
+      const formData = new FormData();
+      formData.append('csv', file);
+      
+      try {
+        const result = await API.importCSV(meetId, formData);
+        const resultDiv = document.getElementById('importResult');
+        resultDiv.innerHTML = `
+          <div class="toast toast-success" style="position:static">✅ Imported ${result.imported} lifters</div>
+          ${result.errors.length ? `<div class="toast toast-error" style="position:static;margin-top:4px">⚠️ ${result.errors.length} errors</div>` : ''}
+        `;
+        await loadLifters();
+      } catch (err) {
+        showToast('CSV import failed: ' + err.message, 'error');
+      }
+    }
+
+    function downloadTemplate() {
+      const csv = 'Name,Team,Division,Weight Class,Body Weight,Flight,Lot,Squat Opener,Bench Opener,Deadlift Opener\nJohn Doe,Team Alpha,Men\'s Raw Open,83,81.2,A,1,180,120,220\nJane Smith,Team Beta,Women\'s Raw Open,63,61.8,A,2,100,60,130\n';
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'sway_lifter_template.csv';
+      a.click();
+    }
+
+    function startMeet() {
+      window.location = `/run.html?meetId=${meetId}&platform=1`;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    init();
+  </script>
+</body>
+</html>

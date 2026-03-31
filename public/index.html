@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SWAY — Powerlifting Meet Management</title>
+  <meta name="description" content="Run your powerlifting meet locally. Scoreboard, referee lights, TV display, and results — all from your laptop.">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="toggleSidebar()" id="menuBtn">☰</button>
+    <a href="/" class="header-brand">
+      <span class="lightning">⚡</span> SWAY
+    </a>
+    <div class="header-actions">
+      <button class="btn btn-primary btn-sm" onclick="openCreateMeetModal()" id="createMeetBtn">+ New Meet</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="landing-hero">
+      <div class="landing-logo">SWAY</div>
+      <p class="landing-tagline">Run your powerlifting meet locally. Scoreboard, referee lights, TV display — all from your laptop.</p>
+      <button class="btn btn-primary btn-lg" onclick="openCreateMeetModal()">⚡ Create New Meet</button>
+    </div>
+
+    <div class="network-info" id="networkInfo" style="display:none">
+      <span>🌐</span>
+      <div>
+        <div class="network-info-text">Other devices can access this app at:</div>
+        <div class="network-info-url" id="networkUrl"></div>
+      </div>
+    </div>
+
+    <div id="meetsContainer">
+      <div class="loading"><div class="spinner"></div> Loading meets...</div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    createSidebar(null, null, 'home');
+    
+    async function init() {
+      try {
+        // Show network info
+        const netInfo = await API.getNetworkInfo();
+        document.getElementById('networkUrl').textContent = netInfo.baseUrl;
+        document.getElementById('networkInfo').style.display = 'flex';
+      } catch (e) {}
+      
+      await loadMeets();
+    }
+
+    async function loadMeets() {
+      try {
+        const meets = await API.getMeets();
+        const container = document.getElementById('meetsContainer');
+        
+        if (meets.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🏋️</div>
+              <div class="empty-state-text">No meets yet. Create one to get started!</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = `
+          <h2 style="font-family:'Roboto Condensed';margin-bottom:16px;color:var(--text-secondary)">Your Meets</h2>
+          <div class="meet-grid">
+            ${meets.map(meet => `
+              <div class="card meet-card" onclick="window.location='/setup.html?meetId=${meet.id}'">
+                <div class="flex-between">
+                  <div class="meet-card-name">${escapeHtml(meet.name)}</div>
+                  <span class="badge badge-${meet.status}">${meet.status}</span>
+                </div>
+                <div class="meet-card-meta">
+                  <span>📅 ${meet.date}</span>
+                  ${meet.federation ? `<span>🏛️ ${escapeHtml(meet.federation)}</span>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (err) {
+        showToast('Failed to load meets: ' + err.message, 'error');
+      }
+    }
+
+    function openCreateMeetModal() {
+      openModal(`
+        <div class="modal-title">⚡ Create New Meet</div>
+        <form onsubmit="createMeet(event)">
+          <div class="form-group">
+            <label class="form-label">Meet Name</label>
+            <input class="form-input" id="meetName" placeholder="e.g. 2026 State Championship" required autofocus>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date</label>
+              <input class="form-input" type="date" id="meetDate" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Federation</label>
+              <input class="form-input" id="meetFederation" placeholder="e.g. USAPL, USPA, APF">
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Meet</button>
+          </div>
+        </form>
+      `);
+    }
+
+    async function createMeet(e) {
+      e.preventDefault();
+      try {
+        const meet = await API.createMeet({
+          name: document.getElementById('meetName').value,
+          date: document.getElementById('meetDate').value,
+          federation: document.getElementById('meetFederation').value
+        });
+        closeModal();
+        showToast('Meet created!');
+        window.location = `/setup.html?meetId=${meet.id}`;
+      } catch (err) {
+        showToast('Failed to create meet: ' + err.message, 'error');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Run Meet — SWAY</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .run-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+    @media (max-width: 1000px) { .run-layout { grid-template-columns: 1fr; } }
+    .controls-panel { position: sticky; top: 70px; }
+    .flight-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+    .flight-tab { padding: 8px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; font-weight: 700; font-family: 'Roboto Condensed'; transition: all 0.2s; }
+    .flight-tab.active { background: var(--accent-primary); color: white; border-color: var(--accent-primary); }
+    .lift-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .lift-tab { padding: 8px 20px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; font-weight: 700; font-family: 'Roboto Condensed'; transition: all 0.2s; }
+    .lift-tab.active { background: var(--accent-primary); color: white; border-color: var(--accent-primary); }
+    .order-table { width: 100%; }
+    .order-table th { padding: 8px 10px; }
+    .order-table td { padding: 6px 10px; }
+    .order-row { cursor: pointer; }
+    .order-row.current { background: var(--accent-glow) !important; border-left: 3px solid var(--accent-primary); }
+    .order-row.done { opacity: 0.5; }
+    .weight-input { width: 70px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; text-align: center; font-weight: 700; font-size: 0.9rem; }
+    .weight-input:focus { border-color: var(--accent-primary); outline: none; }
+    .result-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: 700; transition: all 0.2s; }
+    .result-btn-good { border-color: var(--good-lift); color: var(--good-lift); background: transparent; }
+    .result-btn-good:hover, .result-btn-good.active { background: var(--good-lift); color: white; }
+    .result-btn-bad { border-color: var(--no-lift); color: var(--no-lift); background: transparent; }
+    .result-btn-bad:hover, .result-btn-bad.active { background: var(--no-lift); color: white; }
+    .current-lifter-panel { background: var(--bg-tertiary); border: 2px solid var(--accent-primary); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; text-align: center; }
+    .current-lifter-name { font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; }
+    .current-lifter-weight { font-family: 'Outfit'; font-weight: 900; font-size: 2.5rem; color: var(--accent-secondary); margin: 8px 0; }
+    .timer-controls { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+    .ref-decision-row { display: flex; gap: 12px; justify-content: center; margin: 12px 0; }
+    .ref-btn-inline { width: 50px; height: 50px; border-radius: 50%; border: 2px solid; cursor: pointer; font-weight: 700; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+    .ref-btn-inline.white-vote { border-color: #ccc; background: transparent; color: #ccc; }
+    .ref-btn-inline.white-vote:hover, .ref-btn-inline.white-vote.active { background: white; color: #333; }
+    .ref-btn-inline.red-vote { border-color: var(--no-lift); background: transparent; color: var(--no-lift); }
+    .ref-btn-inline.red-vote:hover, .ref-btn-inline.red-vote.active { background: var(--no-lift); color: white; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <div class="header-title" id="meetTitle">Run Meet</div>
+    <div class="header-actions">
+      <span class="badge badge-running" id="statusBadge">LIVE</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="run-layout">
+      <!-- Lifting Order Table -->
+      <div>
+        <div class="flex-between mb-16">
+          <div class="lift-tabs" id="liftTabs">
+            <button class="lift-tab active" data-lift="squat" onclick="switchLift('squat')">Squat</button>
+            <button class="lift-tab" data-lift="bench" onclick="switchLift('bench')">Bench</button>
+            <button class="lift-tab" data-lift="deadlift" onclick="switchLift('deadlift')">Deadlift</button>
+          </div>
+          <div class="flight-tabs" id="flightTabs">
+            <button class="flight-tab active" data-flight="A" onclick="switchFlight('A')">A</button>
+            <button class="flight-tab" data-flight="B" onclick="switchFlight('B')">B</button>
+            <button class="flight-tab" data-flight="C" onclick="switchFlight('C')">C</button>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <table class="order-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Team</th>
+                <th>Attempt 1</th>
+                <th>Attempt 2</th>
+                <th>Attempt 3</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orderBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Controls Panel -->
+      <div class="controls-panel">
+        <div class="current-lifter-panel" id="currentLifterPanel">
+          <div style="color:var(--text-muted);font-size:0.8rem;text-transform:uppercase;letter-spacing:1px">Current Lifter</div>
+          <div class="current-lifter-name" id="currentLifterName">—</div>
+          <div class="current-lifter-weight" id="currentLifterWeight">—</div>
+          <div id="currentAttemptInfo" style="color:var(--text-secondary);font-size:0.9rem"></div>
+          
+          <!-- Timer -->
+          <div class="timer" id="timerDisplay">1:00</div>
+          <div class="timer-controls">
+            <button class="btn btn-success btn-sm" onclick="startTimer()">▶ Start</button>
+            <button class="btn btn-outline btn-sm" onclick="stopTimer()">⏸ Pause</button>
+            <button class="btn btn-outline btn-sm" onclick="resetTimer()">↺ Reset</button>
+          </div>
+        </div>
+
+        <!-- Referee Decisions (inline) -->
+        <div class="card" style="padding:16px;margin-bottom:16px">
+          <div class="card-title" style="text-align:center;margin-bottom:12px;font-size:0.9rem">Referee Decisions</div>
+          <div class="ref-lights" id="refLightsSmall">
+            <div class="ref-light waiting" id="refSmall1"></div>
+            <div class="ref-light waiting" id="refSmall2"></div>
+            <div class="ref-light waiting" id="refSmall3"></div>
+          </div>
+          <div style="display:flex;justify-content:space-around;margin-top:12px;">
+            <div style="text-align:center">
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">Left</div>
+              <div style="display:flex;gap:6px">
+                <button class="ref-btn-inline white-vote" onclick="refVote(1,'white')" id="ref1White">✓</button>
+                <button class="ref-btn-inline red-vote" onclick="refVote(1,'red')" id="ref1Red">✕</button>
+              </div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">Head</div>
+              <div style="display:flex;gap:6px">
+                <button class="ref-btn-inline white-vote" onclick="refVote(2,'white')" id="ref2White">✓</button>
+                <button class="ref-btn-inline red-vote" onclick="refVote(2,'red')" id="ref2Red">✕</button>
+              </div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px">Right</div>
+              <div style="display:flex;gap:6px">
+                <button class="ref-btn-inline white-vote" onclick="refVote(3,'white')" id="ref3White">✓</button>
+                <button class="ref-btn-inline red-vote" onclick="refVote(3,'red')" id="ref3Red">✕</button>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:center;margin-top:12px">
+            <button class="btn btn-primary btn-sm" onclick="submitDecision()">Submit Decision</button>
+            <button class="btn btn-outline btn-sm" onclick="clearDecision()">Clear</button>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card" style="padding:16px">
+          <div class="card-title" style="margin-bottom:12px;font-size:0.9rem">Quick Actions</div>
+          <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px" onclick="advanceLifter()">Next Lifter →</button>
+          <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px" onclick="advanceRound()">Next Round →</button>
+          <button class="btn btn-outline btn-sm" style="width:100%" onclick="window.open(`/display.html?meetId=${meetId}&platform=${platform}`, '_blank')">📺 Open Display View</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const meetId = getParam('meetId');
+    const platform = parseInt(getParam('platform') || '1');
+    if (!meetId) window.location = '/';
+
+    let currentLift = 'squat';
+    let currentFlight = 'A';
+    let currentAttemptNum = 1;
+    let liftingOrder = [];
+    let currentLifterIdx = 0;
+    let meet = null;
+    let refDecisions = { ref1: '', ref2: '', ref3: '' };
+    let timer = null;
+
+    createSidebar(meetId, '', 'run');
+
+    async function init() {
+      meet = await API.getMeet(meetId);
+      document.getElementById('meetTitle').textContent = meet.name;
+      document.title = `${meet.name} — Run — SWAY`;
+      
+      // Load saved state
+      try {
+        const state = await API.getMeetState(meetId);
+        currentLift = state.current_lift_type || 'squat';
+        currentAttemptNum = state.current_attempt_number || 1;
+        currentFlight = state.current_flight || 'A';
+        
+        // Update tabs
+        document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === currentLift));
+        document.querySelectorAll('.flight-tab').forEach(t => t.classList.toggle('active', t.dataset.flight === currentFlight));
+      } catch (e) {}
+
+      timer = new CompetitionTimer(document.getElementById('timerDisplay'), 
+        (s) => socket.send('timer', { seconds: s, meetId }),
+        () => socket.send('timer_expired', { meetId })
+      );
+      timer.render();
+
+      await loadOrder();
+      
+      socket.connect();
+      socket.on('attempt_updated', () => loadOrder());
+      socket.on('decision_made', () => loadOrder());
+      socket.on('state_changed', (data) => {
+        if (data.meetId === meetId) loadOrder();
+      });
+    }
+
+    async function loadOrder() {
+      try {
+        liftingOrder = await API.getLiftingOrder(meetId, platform, currentFlight, currentLift, currentAttemptNum);
+        renderOrder();
+        updateCurrentLifter();
+      } catch (err) {
+        console.error('Load order error:', err);
+      }
+    }
+
+    function renderOrder() {
+      const body = document.getElementById('orderBody');
+      body.innerHTML = liftingOrder.map((lifter, idx) => {
+        const attempts = lifter.attempts.filter(a => a.lift_type === currentLift);
+        
+        return `
+          <tr class="order-row ${idx === currentLifterIdx ? 'current' : ''}" onclick="selectLifter(${idx})">
+            <td>${idx + 1}</td>
+            <td style="font-weight:700">${escapeHtml(lifter.name)}</td>
+            <td style="color:var(--text-secondary)">${escapeHtml(lifter.team || '')}</td>
+            ${[1,2,3].map(num => {
+              const att = attempts.find(a => a.attempt_number === num);
+              const cls = att ? getAttemptClass(att) : '';
+              const weight = att?.weight || '';
+              return `
+                <td class="attempt-cell ${cls}">
+                  <input class="weight-input" value="${weight}" placeholder="-"
+                    onchange="setWeight('${lifter.id}', '${currentLift}', ${num}, this.value)"
+                    onclick="event.stopPropagation()"
+                    ${att?.result === 'good' || att?.result === 'no_good' ? 'style="pointer-events:none;opacity:0.7"' : ''}>
+                </td>
+              `;
+            }).join('')}
+            <td>
+              ${attempts.filter(a => a.weight && a.result === 'pending').map(a => `
+                <button class="result-btn result-btn-good" onclick="event.stopPropagation();quickResult('${a.id}','good')" title="Good lift">✓</button>
+                <button class="result-btn result-btn-bad" onclick="event.stopPropagation();quickResult('${a.id}','no_good')" title="No lift">✕</button>
+              `).join('') || ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateCurrentLifter() {
+      // Find the first lifter who hasn't completed their current attempt
+      const pending = liftingOrder.findIndex(l => {
+        const att = l.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);
+        return att && att.weight && att.result === 'pending';
+      });
+      
+      currentLifterIdx = pending >= 0 ? pending : 0;
+      const lifter = liftingOrder[currentLifterIdx];
+      
+      if (lifter) {
+        const att = lifter.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);
+        document.getElementById('currentLifterName').textContent = lifter.name;
+        document.getElementById('currentLifterWeight').textContent = att?.weight ? `${att.weight} kg` : '—';
+        document.getElementById('currentAttemptInfo').textContent = `${LIFT_NAMES[currentLift]} — Attempt ${currentAttemptNum}`;
+        
+        // Broadcast to display
+        socket.send('current_lifter', {
+          meetId, platform, lifter, attempt: att,
+          liftType: currentLift, attemptNumber: currentAttemptNum,
+          liftingOrder
+        });
+
+        // Save state
+        API.updateMeetState(meetId, {
+          current_lift_type: currentLift,
+          current_attempt_number: currentAttemptNum,
+          current_flight: currentFlight,
+          current_lifter_id: lifter.id
+        });
+      } else {
+        document.getElementById('currentLifterName').textContent = '—';
+        document.getElementById('currentLifterWeight').textContent = '—';
+        document.getElementById('currentAttemptInfo').textContent = '';
+      }
+      
+      renderOrder();
+    }
+
+    function selectLifter(idx) {
+      currentLifterIdx = idx;
+      updateCurrentLifter();
+    }
+
+    async function setWeight(lifterId, liftType, num, value) {
+      const weight = parseFloat(value);
+      if (isNaN(weight) || weight <= 0) return;
+      try {
+        await API.setAttemptWeight(lifterId, liftType, num, weight);
+        socket.send('attempt_updated', { meetId, lifterId, liftType, num, weight });
+        await loadOrder();
+        showToast(`Weight set: ${weight} kg`);
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function quickResult(attemptId, result) {
+      try {
+        await API.updateAttempt(attemptId, { result });
+        socket.send('decision_made', { meetId, attemptId, result });
+        await loadOrder();
+        showToast(result === 'good' ? '✅ Good lift!' : '❌ No lift');
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // Referee inline
+    function refVote(refNum, decision) {
+      refDecisions[`ref${refNum}`] = decision;
+      // Update button styles
+      document.getElementById(`ref${refNum}White`).classList.toggle('active', decision === 'white');
+      document.getElementById(`ref${refNum}Red`).classList.toggle('active', decision === 'red');
+      // Update light preview
+      const light = document.getElementById(`refSmall${refNum}`);
+      light.className = `ref-light ${decision || 'waiting'}`;
+    }
+
+    async function submitDecision() {
+      const lifter = liftingOrder[currentLifterIdx];
+      if (!lifter) return;
+      
+      try {
+        const result = await API.recordDecision(lifter.id, currentLift, currentAttemptNum, refDecisions);
+        socket.send('decision_made', { meetId, ...refDecisions, result: result.result, lifterId: lifter.id });
+        clearDecision();
+        await loadOrder();
+        showToast(result.result === 'good' ? '✅ Good lift!' : '❌ No lift');
+        resetTimer();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    function clearDecision() {
+      refDecisions = { ref1: '', ref2: '', ref3: '' };
+      [1,2,3].forEach(n => {
+        document.getElementById(`ref${n}White`).classList.remove('active');
+        document.getElementById(`ref${n}Red`).classList.remove('active');
+        document.getElementById(`refSmall${n}`).className = 'ref-light waiting';
+      });
+    }
+
+    function advanceLifter() {
+      currentLifterIdx = Math.min(currentLifterIdx + 1, liftingOrder.length - 1);
+      updateCurrentLifter();
+      resetTimer();
+    }
+
+    function advanceRound() {
+      // Check if all lifters in current round are done
+      if (currentAttemptNum < 3) {
+        currentAttemptNum++;
+      } else if (currentLift === 'squat') {
+        currentLift = 'bench';
+        currentAttemptNum = 1;
+      } else if (currentLift === 'bench') {
+        currentLift = 'deadlift';
+        currentAttemptNum = 1;
+      }
+      
+      document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === currentLift));
+      currentLifterIdx = 0;
+      loadOrder();
+      resetTimer();
+      socket.send('state_changed', { meetId, liftType: currentLift, attemptNumber: currentAttemptNum, flight: currentFlight });
+    }
+
+    function switchLift(lift) {
+      currentLift = lift;
+      currentAttemptNum = 1;
+      currentLifterIdx = 0;
+      document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === lift));
+      loadOrder();
+      socket.send('state_changed', { meetId, liftType: lift, attemptNumber: 1 });
+    }
+
+    function switchFlight(flight) {
+      currentFlight = flight;
+      currentLifterIdx = 0;
+      document.querySelectorAll('.flight-tab').forEach(t => t.classList.toggle('active', t.dataset.flight === flight));
+      loadOrder();
+      socket.send('state_changed', { meetId, flight });
+    }
+
+    function startTimer() { timer.start(); socket.send('timer_start', { meetId, seconds: timer.seconds }); }
+    function stopTimer() { timer.stop(); socket.send('timer_stop', { meetId }); }
+    function resetTimer() { timer.reset(60); socket.send('timer_reset', { meetId, seconds: 60 }); }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    init();
+  </script>
+</body>
+</html>

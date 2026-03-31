@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Referee — SWAY</title>
+  <meta name="description" content="Referee decision input for SWAY powerlifting meet management">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { display: flex; align-items: center; justify-content: center; }
+    body::before { display: none; }
+    .referee-info { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 8px; }
+    .referee-lifter { font-family: 'Outfit'; font-weight: 800; font-size: 1.4rem; color: var(--text-primary); }
+    .referee-weight { font-family: 'Outfit'; font-weight: 900; font-size: 2rem; color: var(--accent-secondary); margin: 4px 0; }
+    .referee-lift-info { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px; }
+    .ref-selector { display: flex; gap: 8px; margin-bottom: 20px; justify-content: center; }
+    .ref-select-btn { padding: 8px 20px; border-radius: 20px; border: 2px solid var(--border-light); background: var(--bg-tertiary); color: var(--text-secondary); font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    .ref-select-btn.active { border-color: var(--accent-primary); background: var(--accent-primary); color: white; }
+    .decision-status { padding: 16px; text-align: center; border-radius: var(--radius-md); margin-top: 16px; }
+    .decision-status.submitted { background: var(--bg-tertiary); border: 1px solid var(--border-color); }
+  </style>
+</head>
+<body>
+  <div class="referee-container">
+    <div style="text-align:center">
+      <div style="font-family:'Outfit';font-weight:800;font-size:1.2rem;color:var(--accent-secondary);margin-bottom:4px">⚡ SWAY</div>
+      <div class="referee-title">Referee Panel</div>
+    </div>
+
+    <div class="ref-selector">
+      <button class="ref-select-btn" onclick="selectRef(1)" id="refSelect1">Left</button>
+      <button class="ref-select-btn" onclick="selectRef(2)" id="refSelect2">Head</button>
+      <button class="ref-select-btn" onclick="selectRef(3)" id="refSelect3">Right</button>
+    </div>
+
+    <div style="text-align:center">
+      <div class="referee-info" id="refLiftInfo">Waiting for the meet to start...</div>
+      <div class="referee-lifter" id="refLifterName">—</div>
+      <div class="referee-weight" id="refWeight">—</div>
+      <div class="referee-lift-info" id="refAttemptInfo"></div>
+    </div>
+
+    <div class="referee-buttons" id="refButtons">
+      <button class="referee-btn referee-btn-good" onclick="submitRefDecision('white')" id="goodLiftBtn">
+        <span class="emoji">⬜</span>
+        GOOD LIFT
+      </button>
+      <button class="referee-btn referee-btn-nolift" onclick="submitRefDecision('red')" id="noLiftBtn">
+        <span class="emoji">🟥</span>
+        NO LIFT
+      </button>
+    </div>
+
+    <div class="decision-status" id="decisionStatus" style="display:none"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const meetId = getParam('meetId');
+    const platform = parseInt(getParam('platform') || '1');
+    let selectedRef = parseInt(getParam('ref') || '0');
+    let currentLifter = null;
+    let currentLiftType = '';
+    let currentAttemptNum = 1;
+    let hasSubmitted = false;
+
+    // Try to load ref selection from storage
+    if (!selectedRef) {
+      selectedRef = parseInt(localStorage.getItem(`sway_ref_${meetId}`) || '0');
+    }
+    if (selectedRef) {
+      document.getElementById(`refSelect${selectedRef}`).classList.add('active');
+    }
+
+    function selectRef(num) {
+      selectedRef = num;
+      localStorage.setItem(`sway_ref_${meetId}`, num);
+      document.querySelectorAll('.ref-select-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`refSelect${num}`).classList.add('active');
+    }
+
+    socket.connect();
+    
+    socket.on('current_lifter', (data) => {
+      if (data.meetId !== meetId) return;
+      currentLifter = data.lifter;
+      currentLiftType = data.liftType;
+      currentAttemptNum = data.attemptNumber;
+      hasSubmitted = false;
+      
+      document.getElementById('refLifterName').textContent = data.lifter?.name || '—';
+      document.getElementById('refWeight').textContent = data.attempt?.weight ? `${data.attempt.weight} kg` : '—';
+      document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[data.liftType] || ''} — Attempt ${data.attemptNumber}`;
+      document.getElementById('refLiftInfo').textContent = data.lifter?.team || '';
+      
+      // Re-enable buttons
+      document.getElementById('refButtons').style.display = 'flex';
+      document.getElementById('decisionStatus').style.display = 'none';
+      document.getElementById('goodLiftBtn').disabled = false;
+      document.getElementById('noLiftBtn').disabled = false;
+    });
+
+    async function submitRefDecision(decision) {
+      if (!selectedRef) {
+        showToast('Please select your referee position (Left, Head, or Right)', 'error');
+        return;
+      }
+      if (!currentLifter) {
+        showToast('No current lifter', 'error');
+        return;
+      }
+      if (hasSubmitted) return;
+      
+      hasSubmitted = true;
+      
+      const refKey = `ref${selectedRef}`;
+      const data = { [refKey]: decision };
+      
+      try {
+        const result = await API.recordDecision(currentLifter.id, currentLiftType, currentAttemptNum, data);
+        
+        // Send via websocket too
+        socket.send('decision_made', { meetId, [refKey]: decision, lifterId: currentLifter.id, result: result.result });
+        
+        // Show confirmation
+        document.getElementById('goodLiftBtn').disabled = true;
+        document.getElementById('noLiftBtn').disabled = true;
+        
+        const status = document.getElementById('decisionStatus');
+        status.style.display = 'block';
+        status.className = 'decision-status submitted';
+        status.innerHTML = `
+          <div style="font-size:2rem;margin-bottom:8px">${decision === 'white' ? '⬜' : '🟥'}</div>
+          <div style="font-weight:700;color:var(--text-primary)">Decision Submitted</div>
+          <div style="color:var(--text-muted);font-size:0.85rem;margin-top:4px">${decision === 'white' ? 'Good Lift' : 'No Lift'} — Referee ${selectedRef === 1 ? 'Left' : selectedRef === 2 ? 'Head' : 'Right'}</div>
+        `;
+      } catch (err) {
+        hasSubmitted = false;
+        showToast('Failed to submit: ' + err.message, 'error');
+      }
+    }
+
+    // Load initial state
+    (async () => {
+      try {
+        const state = await API.getMeetState(meetId);
+        if (state.current_lifter_id) {
+          const lifter = await API.getLifter(state.current_lifter_id);
+          const att = lifter.attempts?.find(a => a.lift_type === state.current_lift_type && a.attempt_number === state.current_attempt_number);
+          currentLifter = lifter;
+          currentLiftType = state.current_lift_type;
+          currentAttemptNum = state.current_attempt_number;
+          
+          document.getElementById('refLifterName').textContent = lifter.name;
+          document.getElementById('refWeight').textContent = att?.weight ? `${att.weight} kg` : '—';
+          document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[state.current_lift_type] || ''} — Attempt ${state.current_attempt_number}`;
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>
