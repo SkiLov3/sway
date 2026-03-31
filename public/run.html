@@ -203,7 +203,12 @@
       
       socket.connect();
       socket.on('attempt_updated', () => loadOrder());
-      socket.on('decision_made', () => loadOrder());
+      socket.on('decision_made', (data) => {
+        loadOrder();
+        if (data && (data.result === 'good' || data.result === 'no_good')) {
+          resetTimer();
+        }
+      });
       socket.on('state_changed', (data) => {
         if (data.meetId === meetId) loadOrder();
       });
@@ -294,6 +299,12 @@
         }
 
         
+        // Update local referee lights for the Chief Table
+        [1,2,3].forEach(n => {
+          const refVal = att?.[`ref${n}`];
+          document.getElementById(`refSmall${n}`).className = `ref-light ${refVal || 'waiting'}`;
+        });
+
         // Broadcast to display
         socket.send('current_lifter', {
           meetId, platform, lifter, attempt: att,

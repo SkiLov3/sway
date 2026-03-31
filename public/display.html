@@ -218,9 +218,10 @@
       
       if (!lifter) return;
       
-      // Reset ref lights
+      // Update ref lights
       [1,2,3].forEach(n => {
-        document.getElementById(`dispRef${n}`).className = 'ref-light waiting';
+        const refVal = attempt?.[`ref${n}`];
+        document.getElementById(`dispRef${n}`).className = refVal && refVal !== '' ? `ref-light ${refVal}` : 'ref-light waiting';
       });
 
       document.getElementById('displayLifterName').textContent = lifter.name;
