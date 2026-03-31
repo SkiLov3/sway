@@ -505,7 +505,7 @@
 
     async function confirmDeleteMeet() {
       try {
-        await API.request('DELETE', `/api/meets/${meetId}`);
+        await API.deleteMeet(meetId);
         window.location = '/';
       } catch (err) {
         showToast('Failed to delete meet: ' + err.message, 'error');
