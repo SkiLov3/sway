@@ -38,6 +38,7 @@
       <div class="referee-lifter" id="refLifterName">—</div>
       <div class="referee-weight" id="refWeight">—</div>
       <div class="referee-lift-info" id="refAttemptInfo"></div>
+      <div id="refDivisionInfo" style="font-size:0.8rem;color:var(--accent-secondary);font-family:'Roboto Condensed';font-weight:700;letter-spacing:0.5px;margin-top:-12px;margin-bottom:20px"></div>
     </div>
 
     <div class="referee-buttons" id="refButtons">
@@ -92,7 +93,15 @@
       document.getElementById('refLifterName').textContent = data.lifter?.name || '—';
       document.getElementById('refWeight').textContent = data.attempt?.weight ? `${data.attempt.weight} kg` : '—';
       document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[data.liftType] || ''} — Attempt ${data.attemptNumber}`;
-      document.getElementById('refLiftInfo').textContent = data.lifter?.team || '';
+
+      // Flight + Division + Weight Class context
+      const flight = data.flight ? `Flight ${data.flight}` : '';
+      const div = data.lifter?.division_name || '';
+      const wc = data.lifter?.weight_class_name || '';
+      const team = data.lifter?.team || '';
+      const divParts = [flight, div, wc].filter(Boolean);
+      document.getElementById('refLiftInfo').textContent = team;
+      document.getElementById('refDivisionInfo').textContent = divParts.join(' · ');
       
       // Re-enable buttons
       document.getElementById('refButtons').style.display = 'flex';
@@ -155,6 +164,13 @@
           document.getElementById('refLifterName').textContent = lifter.name;
           document.getElementById('refWeight').textContent = att?.weight ? `${att.weight} kg` : '—';
           document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[state.current_lift_type] || ''} — Attempt ${state.current_attempt_number}`;
+          document.getElementById('refLiftInfo').textContent = lifter.team || '';
+
+          const div = lifter.division_name || '';
+          const wc = lifter.weight_class_name || '';
+          const flightLabel = lifter.flight ? `Flight ${lifter.flight}` : '';
+          const divParts = [flightLabel, div, wc].filter(Boolean);
+          document.getElementById('refDivisionInfo').textContent = divParts.join(' · ');
         }
       } catch (e) {}
     })();
