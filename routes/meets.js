@@ -131,32 +131,6 @@ router.put('/:id', (req, res) => {
   }
 });
 
-// Short-code redirect: /join/CODE → referee page
-router.get('/join/:code', (req, res) => {
-  try {
-    const db = getDb();
-    const code = req.params.code.toUpperCase();
-    const meet = db.prepare("SELECT id FROM meets WHERE short_code = ? AND short_code != ''").get(code);
-    if (!meet) return res.status(404).send(`<h2>Meet code "${code}" not found.</h2><p>Ask your meet director for the correct code.</p>`);
-    res.redirect(`/referee.html?meetId=${meet.id}&platform=1`);
-  } catch (err) {
-    res.status(500).send('Server error');
-  }
-});
-
-// Short-code redirect: /tv/CODE → display page
-router.get('/tv/:code', (req, res) => {
-  try {
-    const db = getDb();
-    const code = req.params.code.toUpperCase();
-    const meet = db.prepare("SELECT id FROM meets WHERE short_code = ? AND short_code != ''").get(code);
-    if (!meet) return res.status(404).send(`<h2>Meet code "${code}" not found.</h2><p>Ask your meet director for the correct code.</p>`);
-    res.redirect(`/display.html?meetId=${meet.id}&platform=1`);
-  } catch (err) {
-    res.status(500).send('Server error');
-  }
-});
-
 // Delete meet
 router.delete('/:id', (req, res) => {
   try {

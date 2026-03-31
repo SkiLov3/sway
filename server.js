@@ -36,8 +36,31 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/meets', require('./routes/meets'));
 app.use('/api/lifters', require('./routes/lifters'));
 app.use('/api/attempts', require('./routes/attempts'));
-app.use('/join', require('./routes/meets'));
-app.use('/tv', require('./routes/meets'));
+
+// ── Short-code redirects ───────────────────────────────────────────────────────
+app.get('/join/:code', (req, res) => {
+  try {
+    const db = getDb();
+    const code = req.params.code.toUpperCase();
+    const meet = db.prepare("SELECT id FROM meets WHERE short_code = ? AND short_code != ''").get(code);
+    if (!meet) return res.status(404).send(`<h2>Meet code "${code}" not found.</h2><p>Ask your meet director for the correct code.</p>`);
+    res.redirect(`/referee.html?meetId=${meet.id}&platform=1`);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
+app.get('/tv/:code', (req, res) => {
+  try {
+    const db = getDb();
+    const code = req.params.code.toUpperCase();
+    const meet = db.prepare("SELECT id FROM meets WHERE short_code = ? AND short_code != ''").get(code);
+    if (!meet) return res.status(404).send(`<h2>Meet code "${code}" not found.</h2><p>Ask your meet director for the correct code.</p>`);
+    res.redirect(`/display.html?meetId=${meet.id}&platform=1`);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
 
 // ── Network helpers ────────────────────────────────────────────────────────────
 function getLocalIP() {
