@@ -129,6 +129,20 @@
       } catch (err) {
         showToast('Failed to create meet: ' + err.message, 'error');
       }
+      // Load version info
+      API.getNetworkInfo().then(info => {
+        const vDiv = document.createElement('div');
+        vDiv.style.position = 'absolute';
+        vDiv.style.bottom = '16px';
+        vDiv.style.left = '0';
+        vDiv.style.right = '0';
+        vDiv.style.textAlign = 'center';
+        vDiv.style.fontSize = '0.75rem';
+        vDiv.style.color = 'var(--text-muted)';
+        vDiv.style.pointerEvents = 'none';
+        vDiv.textContent = `SWAY v${info.version}`;
+        document.body.appendChild(vDiv);
+      }).catch(() => {});
     }
 
     init();
