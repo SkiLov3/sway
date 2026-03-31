@@ -43,7 +43,10 @@
 <body>
   <header class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-    <div class="header-title" id="meetTitle">Run Meet</div>
+    <div class="header-title">
+      <span id="statusDot" class="status-dot offline"></span>
+      <span id="meetTitle">Run Meet</span>
+    </div>
     <div class="header-actions">
       <span class="badge badge-running" id="statusBadge">LIVE</span>
     </div>
@@ -167,6 +170,14 @@
     let pendingResetId = null;
     let activeFlights = ['A']; // Will be populated in init()
 
+    function updateStatusUI() {
+      const dot = document.getElementById('statusDot');
+      if (dot) {
+        dot.className = `status-dot ${socket.connected ? 'online' : 'offline'}`;
+        dot.title = socket.connected ? 'Connected' : 'Disconnected';
+      }
+    }
+
     createSidebar(meetId, '', 'run');
 
     async function init() {
@@ -212,8 +223,6 @@
       );
       await loadOrder();
       
-      socket.connect();
-      
       socket.on('attempt_updated', () => loadOrder());
       socket.on('decision_made', (data) => {
         loadOrder();
@@ -226,6 +235,14 @@
           }
         }
       });
+
+      socket.on('reconnected', () => {
+        showToast('Network restored — Syncing...', 'success');
+        init(); // Full refresh
+      });
+      socket.on('connected', updateStatusUI);
+      socket.on('disconnected', updateStatusUI);
+      updateStatusUI();
     }
 
     async function loadOrder() {

@@ -20,7 +20,10 @@
 <body>
   <header class="header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-    <div class="header-title" id="meetTitle">Results</div>
+    <div class="header-title">
+      <span id="statusDot" class="status-dot offline"></span>
+      <span id="meetTitle">Results</span>
+    </div>
     <div class="header-actions">
       <button class="btn btn-outline btn-sm" id="forecastedBtn" onclick="toggleForecasted()">Forecasted</button>
       <button class="btn btn-outline btn-sm" onclick="exportResults()">📋 Export</button>
@@ -76,13 +79,27 @@
       
       await loadResults();
       
-      await loadResults();
-      
       // Auto-refresh via WebSockets (100% event-driven, no more polling)
       socket.connect();
+      
       socket.on('attempt_updated', () => loadResults());
       socket.on('decision_made', () => loadResults());
       socket.on('state_changed', () => loadResults());
+      
+      socket.on('reconnected', () => {
+        init(); // Full refresh
+      });
+      socket.on('connected', updateStatusUI);
+      socket.on('disconnected', updateStatusUI);
+      updateStatusUI();
+    }
+
+    function updateStatusUI() {
+      const dot = document.getElementById('statusDot');
+      if (dot) {
+        dot.className = `status-dot ${socket.connected ? 'online' : 'offline'}`;
+        dot.title = socket.connected ? 'Connected' : 'Disconnected';
+      }
     }
 
     async function loadResults() {

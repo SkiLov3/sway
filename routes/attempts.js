@@ -201,11 +201,16 @@ router.get('/order/:meetId/:platform/:flight/:liftType/:attemptNumber', (req, re
 
     // Sort by: weight ascending, then lot number (standard powerlifting order)
     enriched.sort((a, b) => {
-      if (a.currentWeight === 0 && b.currentWeight === 0) return (a.lot_number || 0) - (b.lot_number || 0);
-      if (a.currentWeight === 0) return 1;
-      if (b.currentWeight === 0) return -1;
-      if (a.currentWeight !== b.currentWeight) return a.currentWeight - b.currentWeight;
-      return (a.lot_number || 0) - (b.lot_number || 0);
+      const wA = parseFloat(a.currentWeight) || 0;
+      const wB = parseFloat(b.currentWeight) || 0;
+      const lotA = parseInt(a.lot_number) || 0;
+      const lotB = parseInt(b.lot_number) || 0;
+
+      if (wA === 0 && wB === 0) return lotA - lotB;
+      if (wA === 0) return 1;
+      if (wB === 0) return -1;
+      if (wA !== wB) return wA - wB;
+      return lotA - lotB;
     });
 
     res.json(enriched);

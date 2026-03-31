@@ -77,6 +77,7 @@ class SwaySocket {
     this.listeners = {};
     this.reconnectDelay = 1000;
     this.maxReconnectDelay = 10000;
+    this.connected = false;
   }
 
   connect() {
@@ -85,8 +86,13 @@ class SwaySocket {
     
     this.ws.onopen = () => {
       console.log('[SWAY] WebSocket connected');
+      const wasDisconnected = !this.connected;
+      this.connected = true;
       this.reconnectDelay = 1000;
       this.emit('connected');
+      if (wasDisconnected) {
+        this.emit('reconnected');
+      }
     };
     
     this.ws.onmessage = (event) => {
@@ -101,6 +107,7 @@ class SwaySocket {
     
     this.ws.onclose = () => {
       console.log('[SWAY] WebSocket disconnected, reconnecting...');
+      this.connected = false;
       this.emit('disconnected');
       setTimeout(() => this.connect(), this.reconnectDelay);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);

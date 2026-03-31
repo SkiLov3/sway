@@ -131,6 +131,17 @@ wss.on('connection', (ws) => {
         console.warn(`[WS] Dropped unknown message type: ${message.type}`);
         return;
       }
+
+      // Persist timer state for meet synchronization
+      if (message.type === 'timer' && message.data?.meetId && message.data?.seconds !== undefined) {
+        try {
+          const db = getDb();
+          db.prepare('UPDATE meet_state SET clock_seconds = ? WHERE meet_id = ?').run(message.data.seconds, message.data.meetId);
+        } catch (e) {
+          console.error('[WS] Failed to persist timer state:', e.message);
+        }
+      }
+
       broadcast(message, ws);
     } catch (e) {
       console.error('[WS] message parse error:', e.message);

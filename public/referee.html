@@ -23,7 +23,10 @@
 <body>
   <div class="referee-container">
     <div style="text-align:center">
-      <div style="font-family:'Outfit';font-weight:800;font-size:1.2rem;color:var(--accent-secondary);margin-bottom:4px">⚡ SWAY</div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:4px">
+        <span id="statusDot" class="status-dot offline"></span>
+        <div style="font-family:'Outfit';font-weight:800;font-size:1.2rem;color:var(--accent-secondary)">⚡ SWAY</div>
+      </div>
       <div class="referee-title">Referee Panel</div>
     </div>
 
@@ -103,6 +106,22 @@
     }
 
     socket.connect();
+
+    socket.on('reconnected', () => {
+      showToast('Connected — Syncing...', 'success');
+      init(); // Refresh state
+    });
+    socket.on('connected', updateStatusUI);
+    socket.on('disconnected', updateStatusUI);
+    updateStatusUI();
+
+    function updateStatusUI() {
+      const dot = document.getElementById('statusDot');
+      if (dot) {
+        dot.className = `status-dot ${socket.connected ? 'online' : 'offline'}`;
+        dot.title = socket.connected ? 'Connected' : 'Disconnected';
+      }
+    }
     
     socket.on('current_lifter', (data) => {
       if (data.meetId !== meetId) return;

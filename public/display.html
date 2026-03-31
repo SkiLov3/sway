@@ -78,9 +78,21 @@
 
     .fullscreen-hint { position: fixed; bottom: 10px; right: 10px; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; z-index: 50; opacity: 0.5; }
     .fullscreen-hint:hover { opacity: 1; cursor: default; }
+
+    /* Offline alert border */
+    .offline-border {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      border: 4px solid rgba(231, 76, 60, 0.4);
+      pointer-events: none;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 1s;
+    }
+    .offline-mode .offline-border { opacity: 1; }
   </style>
 </head>
 <body>
+  <div class="offline-border"></div>
   <div class="display-fullscreen" id="display" ondblclick="toggleFullscreen()">
     <!-- Top bar -->
     <div class="display-top">
@@ -214,6 +226,19 @@
       socket.on('timer_stop',  (data) => { if (data.meetId !== meetId) return; displayTimer.stop(); });
       socket.on('timer_reset', (data) => { if (data.meetId !== meetId) return; displayTimer.reset(data.seconds || 60); });
       socket.on('timer',       (data) => { if (data.meetId !== meetId) return; displayTimer.seconds = data.seconds; displayTimer.render(); });
+
+      socket.on('reconnected', () => {
+        loadState(); // Refresh TV state
+        document.body.classList.remove('offline-mode');
+        if (window.offlineTimeout) clearTimeout(window.offlineTimeout);
+      });
+
+      socket.on('disconnected', () => {
+        // Show subtle alert after 5s
+        window.offlineTimeout = setTimeout(() => {
+          if (!socket.connected) document.body.classList.add('offline-mode');
+        }, 5000);
+      });
 
       // Initial load
       loadState();
