@@ -91,6 +91,8 @@
           <div class="current-lifter-name" id="currentLifterName">—</div>
           <div class="current-lifter-weight" id="currentLifterWeight">—</div>
           <div id="currentAttemptInfo" style="color:var(--text-secondary);font-size:0.9rem"></div>
+          <div id="currentRackHeight" style="display:none;margin-top:6px;padding:4px 12px;background:var(--bg-primary);border:1px solid var(--accent-primary);border-radius:var(--radius-sm);font-family:'Roboto Condensed';font-weight:700;font-size:0.9rem;color:var(--accent-secondary)"></div>
+
           
           <!-- Timer -->
           <div class="timer" id="timerDisplay">1:00</div>
@@ -260,11 +262,30 @@
         document.getElementById('currentLifterWeight').textContent = att?.weight ? `${att.weight} kg` : '—';
         document.getElementById('currentAttemptInfo').textContent = `${LIFT_NAMES[currentLift]} — Attempt ${currentAttemptNum}`;
         
+        // Show rack height for current lift
+        const rackEl = document.getElementById('currentRackHeight');
+        let rackHeight = '';
+        let rackLabel = '';
+        if (currentLift === 'squat') {
+          rackHeight = lifter.squat_rack_height || lifter.rack_height || '';
+          rackLabel = 'Squat Rack';
+        } else if (currentLift === 'bench') {
+          rackHeight = lifter.bench_rack_height || lifter.rack_height || '';
+          rackLabel = 'Bench Rack';
+        }
+        if (rackHeight && rackHeight.trim()) {
+          rackEl.style.display = 'inline-block';
+          rackEl.textContent = `🔧 ${rackLabel}: ${rackHeight.trim()}`;
+        } else {
+          rackEl.style.display = 'none';
+        }
+
+        
         // Broadcast to display
         socket.send('current_lifter', {
           meetId, platform, lifter, attempt: att,
           liftType: currentLift, attemptNumber: currentAttemptNum,
-          liftingOrder
+          liftingOrder, flight: currentFlight
         });
 
         // Save state

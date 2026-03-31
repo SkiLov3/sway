@@ -1,5 +1,14 @@
 const { getDb, generateId } = require('./db');
+
+// ── Safety guard: require --force to run ──────────────────────────────────────
+if (!process.argv.includes('--force')) {
+  console.error('⚠️  seed.js will insert test data into the database.');
+  console.error('   Run with --force to confirm: node seed.js --force');
+  process.exit(1);
+}
+
 const db = getDb();
+
 
 const meetId = generateId();
 db.exec(`INSERT INTO meets (id, name, date, federation, status) VALUES ('${meetId}', 'Test Meet', '2026-04-01', 'USAPL', 'running')`);

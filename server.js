@@ -4,23 +4,32 @@ const WebSocket = require('ws');
 const path = require('path');
 const os = require('os');
 const QRCode = require('qrcode');
+const helmet = require('helmet');
 const { getDb } = require('./db');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// ── Security headers ──────────────────────────────────────────────────────────
+app.use(helmet({
+  // Allow inline scripts/styles needed for the single-file HTML pages
+  contentSecurityPolicy: false,
+  // Don't block loading from same origin in iframes (display page)
+  frameguard: false,
+}));
+
+// ── Middleware ─────────────────────────────────────────────────────────────────
+app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Routes
+// ── Routes ─────────────────────────────────────────────────────────────────────
 app.use('/api/meets', require('./routes/meets'));
 app.use('/api/lifters', require('./routes/lifters'));
 app.use('/api/attempts', require('./routes/attempts'));
 
-// Get local IP for QR code / network access
+// ── Network helpers ────────────────────────────────────────────────────────────
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -36,7 +45,7 @@ function getLocalIP() {
 // QR Code endpoint
 app.get('/api/qrcode', async (req, res) => {
   const localIP = getLocalIP();
-  const port = process.env.PORT || 3000;
+  const port = PORT;
   const targetUrl = req.query.path || '/';
   const fullUrl = `http://${localIP}:${port}${targetUrl}`;
   
@@ -51,23 +60,37 @@ app.get('/api/qrcode', async (req, res) => {
 // Network info endpoint
 app.get('/api/network', (req, res) => {
   const localIP = getLocalIP();
-  const port = process.env.PORT || 3000;
-  res.json({ ip: localIP, port, baseUrl: `http://${localIP}:${port}` });
+  res.json({ ip: localIP, port: PORT, baseUrl: `http://${localIP}:${PORT}` });
 });
 
-// WebSocket handling
+// ── WebSocket ──────────────────────────────────────────────────────────────────
+const ALLOWED_WS_TYPES = new Set([
+  'current_lifter', 'attempt_updated', 'decision_made', 'state_changed',
+  'timer', 'timer_start', 'timer_stop', 'timer_reset', 'timer_expired',
+]);
+const WS_MAX_BYTES = 16 * 1024; // 16 KB
+
 const wsClients = new Set();
 
 wss.on('connection', (ws) => {
   wsClients.add(ws);
   
   ws.on('message', (data) => {
+    // Reject oversized messages
+    if (data.length > WS_MAX_BYTES) {
+      console.warn(`[WS] Dropped oversized message (${data.length} bytes)`);
+      return;
+    }
     try {
       const message = JSON.parse(data);
-      // Broadcast to all other clients
+      // Only relay known message types
+      if (!message.type || !ALLOWED_WS_TYPES.has(message.type)) {
+        console.warn(`[WS] Dropped unknown message type: ${message.type}`);
+        return;
+      }
       broadcast(message, ws);
     } catch (e) {
-      console.error('WS message error:', e);
+      console.error('[WS] message parse error:', e.message);
     }
   });
 
@@ -88,10 +111,18 @@ function broadcast(message, excludeWs = null) {
 // Make broadcast available to routes
 app.set('broadcast', broadcast);
 
-// Initialize DB on startup
+// ── PORT validation ────────────────────────────────────────────────────────────
+const rawPort = process.env.PORT || '3000';
+const PORT = parseInt(rawPort, 10);
+if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
+  console.error(`[SWAY] Invalid PORT value: "${rawPort}". Must be a number between 1–65535.`);
+  process.exit(1);
+}
+
+// ── Initialize DB ──────────────────────────────────────────────────────────────
 getDb();
 
-const PORT = process.env.PORT || 3000;
+// ── Start server ───────────────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
   const localIP = getLocalIP();
   console.log('');
@@ -106,3 +137,21 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('╚══════════════════════════════════════════════╝');
   console.log('');
 });
+
+// ── Graceful shutdown ──────────────────────────────────────────────────────────
+function shutdown(signal) {
+  console.log(`\n[SWAY] ${signal} received — shutting down gracefully...`);
+  server.close(() => {
+    try {
+      const db = getDb();
+      db.close();
+      console.log('[SWAY] Database closed cleanly.');
+    } catch (_) {}
+    process.exit(0);
+  });
+  // Force exit after 5s if connections don't drain
+  setTimeout(() => process.exit(1), 5000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));

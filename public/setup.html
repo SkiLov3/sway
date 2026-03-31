@@ -13,15 +13,27 @@
     .wc-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; }
     .wc-item input { background: transparent; border: none; color: var(--text-primary); font-size: 0.9rem; width: 100px; }
     .wc-item input:focus { outline: 1px solid var(--accent-primary); border-radius: 3px; }
-    .lifter-row { display: grid; grid-template-columns: 2fr 1fr 1fr 60px 80px 60px 40px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+    .lifter-row { display: grid; grid-template-columns: 2fr 1fr 1fr 60px 80px 60px 40px 32px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
     .lifter-row.header { font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-light); }
     .lifter-row input, .lifter-row select { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 8px; border-radius: var(--radius-sm); font-size: 0.85rem; }
     .lifter-row input:focus, .lifter-row select:focus { outline: none; border-color: var(--accent-primary); }
     .delete-btn { background: none; border: none; color: var(--no-lift); cursor: pointer; font-size: 1.1rem; padding: 4px; }
     .delete-btn:hover { color: #ff6b6b; }
+    .expand-btn { background: none; border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); font-size: 0.75rem; padding: 4px 6px; transition: all 0.2s; }
+    .expand-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+    .expand-btn.open { background: var(--accent-glow); border-color: var(--accent-primary); color: var(--accent-primary); }
+    /* Lifter detail panel */
+    .lifter-detail { display: none; background: var(--bg-primary); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px; margin-bottom: 4px; }
+    .lifter-detail.open { display: block; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .detail-field label { display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .detail-field input { width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 10px; border-radius: var(--radius-sm); font-size: 0.9rem; font-family: 'Roboto Condensed'; font-weight: 700; }
+    .detail-field input:focus { outline: none; border-color: var(--accent-primary); }
+    .detail-section-label { font-size: 0.75rem; font-weight: 700; color: var(--accent-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; margin-top: 4px; }
     .csv-dropzone { border: 2px dashed var(--border-light); border-radius: var(--radius-md); padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; color: var(--text-muted); }
     .csv-dropzone:hover, .csv-dropzone.dragover { border-color: var(--accent-primary); background: var(--accent-glow); color: var(--text-primary); }
     .preset-btn { padding: 4px 10px; font-size: 0.75rem; margin: 2px; }
+
   </style>
 </head>
 <body>
@@ -105,6 +117,7 @@
           <div>Body Weight</div>
           <div>Flight</div>
           <div>Lot</div>
+          <div></div>
           <div></div>
         </div>
         <div id="liftersList"></div>
@@ -262,6 +275,13 @@
     // Lifters
     async function loadLifters() {
       lifters = await API.getLifters(meetId);
+      // Enrich with attempts so we can show opener weights in the detail panel
+      await Promise.all(lifters.map(async l => {
+        try {
+          const full = await API.getLifter(l.id);
+          l.attempts = full.attempts || [];
+        } catch (_) { l.attempts = []; }
+      }));
       document.getElementById('lifterCount').textContent = lifters.length;
       renderLifters();
     }
@@ -273,33 +293,74 @@
         return;
       }
 
-      list.innerHTML = lifters.map(l => `
-        <div class="lifter-row" data-id="${l.id}">
-          <div>
-            <input value="${escapeHtml(l.name)}" placeholder="Lifter name" onchange="updateLifterField('${l.id}', 'name', this.value)" style="width:60%">
-            <input value="${escapeHtml(l.team || '')}" placeholder="Team" onchange="updateLifterField('${l.id}', 'team', this.value)" style="width:35%">
+      list.innerHTML = lifters.map(l => {
+        // Find opener weights (attempt 1 for each lift type)
+        const sqOpener = (l.attempts || []).find(a => a.lift_type === 'squat' && a.attempt_number === 1)?.weight || '';
+        const bpOpener = (l.attempts || []).find(a => a.lift_type === 'bench' && a.attempt_number === 1)?.weight || '';
+        const dlOpener = (l.attempts || []).find(a => a.lift_type === 'deadlift' && a.attempt_number === 1)?.weight || '';
+
+        return `
+          <div class="lifter-row" data-id="${l.id}">
+            <div>
+              <input value="${escapeHtml(l.name)}" placeholder="Lifter name" onchange="updateLifterField('${l.id}', 'name', this.value)" style="width:60%">
+              <input value="${escapeHtml(l.team || '')}" placeholder="Team" onchange="updateLifterField('${l.id}', 'team', this.value)" style="width:35%">
+            </div>
+            <select onchange="updateLifterField('${l.id}', 'division_id', this.value)">
+              <option value="">—</option>
+              ${divisions.map(d => `<option value="${d.id}" ${l.division_id === d.id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}
+            </select>
+            <select onchange="updateLifterField('${l.id}', 'weight_class_id', this.value)">
+              <option value="">—</option>
+              ${getAllWeightClasses().map(wc => `<option value="${wc.id}" ${l.weight_class_id === wc.id ? 'selected' : ''}>${escapeHtml(wc.name)}</option>`).join('')}
+            </select>
+            <select onchange="updateLifterField('${l.id}', 'gender', this.value)">
+              <option value="M" ${l.gender === 'M' ? 'selected' : ''}>M</option>
+              <option value="F" ${l.gender === 'F' ? 'selected' : ''}>F</option>
+              <option value="X" ${l.gender === 'X' ? 'selected' : ''}>X</option>
+            </select>
+            <input type="number" step="0.1" value="${l.body_weight || ''}" placeholder="kg" onchange="updateLifterField('${l.id}', 'body_weight', parseFloat(this.value))">
+            <select onchange="updateLifterField('${l.id}', 'flight', this.value)">
+              ${['A','B','C','D','E'].map(f => `<option ${l.flight === f ? 'selected' : ''}>${f}</option>`).join('')}
+            </select>
+            <input type="number" value="${l.lot_number || ''}" placeholder="#" onchange="updateLifterField('${l.id}', 'lot_number', parseInt(this.value))" style="width:50px">
+            <button class="delete-btn" onclick="deleteLifter('${l.id}')">🗑</button>
+            <button class="expand-btn" id="expand-btn-${l.id}" onclick="toggleDetail('${l.id}')" title="Rack heights & openers">⚙</button>
           </div>
-          <select onchange="updateLifterField('${l.id}', 'division_id', this.value)">
-            <option value="">—</option>
-            ${divisions.map(d => `<option value="${d.id}" ${l.division_id === d.id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('')}
-          </select>
-          <select onchange="updateLifterField('${l.id}', 'weight_class_id', this.value)">
-            <option value="">—</option>
-            ${getAllWeightClasses().map(wc => `<option value="${wc.id}" ${l.weight_class_id === wc.id ? 'selected' : ''}>${escapeHtml(wc.name)}</option>`).join('')}
-          </select>
-          <select onchange="updateLifterField('${l.id}', 'gender', this.value)">
-            <option value="M" ${l.gender === 'M' ? 'selected' : ''}>M</option>
-            <option value="F" ${l.gender === 'F' ? 'selected' : ''}>F</option>
-            <option value="X" ${l.gender === 'X' ? 'selected' : ''}>X</option>
-          </select>
-          <input type="number" step="0.1" value="${l.body_weight || ''}" placeholder="kg" onchange="updateLifterField('${l.id}', 'body_weight', parseFloat(this.value))">
-          <select onchange="updateLifterField('${l.id}', 'flight', this.value)">
-            ${['A','B','C','D','E'].map(f => `<option ${l.flight === f ? 'selected' : ''}>${f}</option>`).join('')}
-          </select>
-          <input type="number" value="${l.lot_number || ''}" placeholder="#" onchange="updateLifterField('${l.id}', 'lot_number', parseInt(this.value))" style="width:50px">
-          <button class="delete-btn" onclick="deleteLifter('${l.id}')">🗑</button>
-        </div>
-      `).join('');
+          <div class="lifter-detail" id="detail-${l.id}">
+            <div class="detail-section-label">🔧 Rack Heights</div>
+            <div class="detail-grid" style="margin-bottom:16px">
+              <div class="detail-field">
+                <label>Squat Rack Height</label>
+                <input type="text" value="${escapeHtml(l.squat_rack_height || '')}" placeholder="e.g. 14"
+                  onchange="updateLifterField('${l.id}', 'squat_rack_height', this.value)">
+              </div>
+              <div class="detail-field">
+                <label>Bench Rack Height</label>
+                <input type="text" value="${escapeHtml(l.bench_rack_height || '')}" placeholder="e.g. 7"
+                  onchange="updateLifterField('${l.id}', 'bench_rack_height', this.value)">
+              </div>
+            </div>
+            <div class="detail-section-label">🏋️ Opening Attempts (kg)</div>
+            <div class="detail-grid">
+              <div class="detail-field">
+                <label>Squat Opener</label>
+                <input type="number" step="2.5" value="${sqOpener}" placeholder="kg"
+                  onchange="saveOpener('${l.id}', 'squat', this.value)">
+              </div>
+              <div class="detail-field">
+                <label>Bench Opener</label>
+                <input type="number" step="2.5" value="${bpOpener}" placeholder="kg"
+                  onchange="saveOpener('${l.id}', 'bench', this.value)">
+              </div>
+              <div class="detail-field">
+                <label>Deadlift Opener</label>
+                <input type="number" step="2.5" value="${dlOpener}" placeholder="kg"
+                  onchange="saveOpener('${l.id}', 'deadlift', this.value)">
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function getAllWeightClasses() {
@@ -318,6 +379,22 @@
 
     async function updateLifterField(id, field, value) {
       try { await API.updateLifter(id, { [field]: value }); } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    function toggleDetail(lifterId) {
+      const panel = document.getElementById(`detail-${lifterId}`);
+      const btn = document.getElementById(`expand-btn-${lifterId}`);
+      const isOpen = panel.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+    }
+
+    async function saveOpener(lifterId, liftType, value) {
+      const weight = parseFloat(value);
+      if (!weight || weight <= 0) return;
+      try {
+        await API.setAttemptWeight(lifterId, liftType, 1, weight);
+        showToast(`${liftType.charAt(0).toUpperCase() + liftType.slice(1)} opener set: ${weight} kg`);
+      } catch (err) { showToast(err.message, 'error'); }
     }
 
     async function deleteLifter(id) {

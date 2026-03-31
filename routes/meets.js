@@ -27,6 +27,9 @@ router.get('/:id', (req, res) => {
   }
 });
 
+const MAX_MEET_NAME = 300;
+const MAX_FED = 100;
+
 // Create meet
 router.post('/', (req, res) => {
   try {
@@ -36,6 +39,12 @@ router.post('/', (req, res) => {
     
     if (!name || name.trim().length === 0) {
       return res.status(400).json({ error: 'Meet name is required' });
+    }
+    if (name.trim().length > MAX_MEET_NAME) {
+      return res.status(400).json({ error: `Meet name must be ${MAX_MEET_NAME} characters or fewer` });
+    }
+    if (federation && federation.length > MAX_FED) {
+      return res.status(400).json({ error: `Federation must be ${MAX_FED} characters or fewer` });
     }
     
     db.prepare('INSERT INTO meets (id, name, date, federation) VALUES (?, ?, ?, ?)').run(
@@ -60,6 +69,20 @@ router.put('/:id', (req, res) => {
     const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
     if (!meet) return res.status(404).json({ error: 'Meet not found' });
 
+    // Validate plates_config if provided
+    let platesConfigStr = meet.plates_config;
+    if (plates_config !== undefined) {
+      try {
+        const parsed = typeof plates_config === 'string' ? JSON.parse(plates_config) : plates_config;
+        if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Must be an object');
+        const serialized = JSON.stringify(parsed);
+        if (serialized.length > 4096) throw new Error('plates_config too large');
+        platesConfigStr = serialized;
+      } catch (e) {
+        return res.status(400).json({ error: `Invalid plates_config: ${e.message}` });
+      }
+    }
+
     db.prepare(`
       UPDATE meets SET name = ?, date = ?, federation = ?, status = ?, plates_config = ? WHERE id = ?
     `).run(
@@ -67,7 +90,7 @@ router.put('/:id', (req, res) => {
       date ?? meet.date,
       federation ?? meet.federation,
       status ?? meet.status,
-      plates_config ?? meet.plates_config,
+      platesConfigStr,
       req.params.id
     );
 

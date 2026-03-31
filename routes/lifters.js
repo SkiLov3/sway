@@ -7,10 +7,17 @@ const fs = require('fs');
 
 const router = express.Router();
 
-// Configure multer for CSV uploads
-const upload = multer({ 
+// Configure multer for CSV uploads — CSV only, 5 MB max
+const upload = multer({
   dest: path.join(__dirname, '..', 'uploads'),
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = file.mimetype === 'text/csv'
+      || file.mimetype === 'application/vnd.ms-excel'
+      || file.originalname.toLowerCase().endsWith('.csv');
+    if (!ok) return cb(new Error('Only CSV files are accepted'), false);
+    cb(null, true);
+  },
 });
 
 // List lifters for a meet
@@ -52,6 +59,11 @@ router.get('/:id', (req, res) => {
   }
 });
 
+// Helper: field length guard
+const MAX_NAME = 200;
+const MAX_TEAM = 200;
+const MAX_RACK = 20;
+
 // Create lifter
 router.post('/', (req, res) => {
   try {
@@ -61,6 +73,8 @@ router.post('/', (req, res) => {
     
     if (!meet_id) return res.status(400).json({ error: 'meet_id is required' });
     if (!name || name.trim().length === 0) return res.status(400).json({ error: 'Lifter name is required' });
+    if (name.trim().length > MAX_NAME) return res.status(400).json({ error: `Name must be ${MAX_NAME} characters or fewer` });
+    if (team && team.length > MAX_TEAM) return res.status(400).json({ error: `Team must be ${MAX_TEAM} characters or fewer` });
     
     db.prepare(`
       INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height)

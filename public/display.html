@@ -8,54 +8,119 @@
   <style>
     body { overflow: hidden; cursor: none; background: #050510; }
     body::before { display: none; }
-    .display-fullscreen { background: #050510; }
-    .display-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 40px; }
-    .display-meet-name { font-family: 'Roboto Condensed'; font-size: 1rem; color: var(--text-muted); }
+    .display-fullscreen { display: flex; flex-direction: column; height: 100vh; background: #050510; }
+
+    /* ── Top bar: meet name + timer ── */
+    .display-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 40px 10px; }
+    .display-meet-name { font-family: 'Roboto Condensed'; font-size: 0.9rem; color: var(--text-muted); }
+    .display-lift-info { color: var(--text-secondary); font-family: 'Roboto Condensed'; font-size: 1rem; font-weight: 700; margin-top: 2px; }
     .display-timer-corner { font-family: 'Outfit'; font-weight: 900; font-size: 2.5rem; }
-    .display-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    .display-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 10px 40px 20px; gap: 20px; }
-    .display-order-table { font-family: 'Roboto Condensed'; font-size: 0.85rem; }
-    .display-order-table th { font-size: 0.7rem; padding: 4px 8px; }
-    .display-order-table td { padding: 4px 8px; }
-    .display-order-row.current { background: var(--accent-glow); font-weight: 700; }
-    .prediction { font-size: 1.1rem; }
+
+    /* ── Main body: lifter + plates + ref lights ── */
+    .display-body { flex: 1; display: flex; flex-direction: row; align-items: center; padding: 0 40px; gap: 32px; min-height: 0; }
+    .display-body-left { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .display-body-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+    /* ── Rack height badge ── */
+    .rack-height-badge {
+      display: flex; flex-direction: column; align-items: center;
+      background: rgba(255,255,255,0.06);
+      border: 2px solid var(--accent-primary);
+      border-radius: var(--radius-md);
+      padding: 12px 28px;
+      min-width: 120px;
+    }
+    .rack-height-label { font-family: 'Roboto Condensed'; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 4px; }
+    .rack-height-value { font-family: 'Outfit'; font-weight: 900; font-size: 2.8rem; color: var(--accent-secondary); line-height: 1; }
+    .rack-height-badge.no-rack { opacity: 0; pointer-events: none; }
+
+    /* ── Bottom bar: On Deck | Flight Order + Division | In the Hole ── */
+    .display-bottom { 
+      display: grid; 
+      grid-template-columns: 220px 1fr 220px; 
+      padding: 10px 40px 18px; 
+      gap: 24px; 
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .display-bottom-info {
+      text-align: center;
+    }
+    .display-bottom-info .section-label {
+      font-family: 'Roboto Condensed'; 
+      font-size: 0.65rem; 
+      color: var(--text-muted); 
+      text-transform: uppercase; 
+      letter-spacing: 1px; 
+      margin-bottom: 3px;
+    }
+    .flight-division-tag {
+      font-family: 'Roboto Condensed';
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent-secondary);
+      margin-bottom: 5px;
+    }
+    .mini-order-row {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Decision flash overlay ── */
     .display-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
     .display-overlay.show { opacity: 1; }
     .decision-flash { font-family: 'Outfit'; font-weight: 900; font-size: 5rem; padding: 40px 80px; border-radius: 20px; }
     .decision-good { background: rgba(255,255,255,0.95); color: #0a0a1a; }
     .decision-bad { background: rgba(192,57,43,0.95); color: white; }
+
     .fullscreen-hint { position: fixed; bottom: 10px; right: 10px; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; z-index: 50; opacity: 0.5; }
     .fullscreen-hint:hover { opacity: 1; cursor: default; }
   </style>
 </head>
 <body>
   <div class="display-fullscreen" id="display" ondblclick="toggleFullscreen()">
+    <!-- Top bar -->
     <div class="display-top">
       <div>
         <div class="display-meet-name" id="displayMeetName"></div>
-        <div id="displayLiftInfo" style="color:var(--text-secondary);font-family:'Roboto Condensed';font-size:1.1rem;font-weight:700;margin-top:2px"></div>
+        <div class="display-lift-info" id="displayLiftInfo"></div>
       </div>
       <div class="display-timer-corner timer" id="displayTimer">1:00</div>
     </div>
 
+    <!-- Main body -->
     <div class="display-body">
-      <div class="display-current-lifter">
-        <div class="display-lifter-name" id="displayLifterName">Waiting...</div>
-        <div class="display-attempt-info" id="displayAttemptInfo"></div>
-        <div class="display-weight" id="displayWeight">—</div>
+      <!-- Left: Name, weight, plate loader, ref lights -->
+      <div class="display-body-left">
+        <div class="display-current-lifter">
+          <div class="display-lifter-name" id="displayLifterName">Waiting...</div>
+          <div class="display-attempt-info" id="displayAttemptInfo"></div>
+          <div class="display-weight" id="displayWeight">—</div>
+        </div>
+
+        <div id="displayPlateLoader" style="padding: 10px 0;"></div>
+
+        <div class="ref-lights ref-lights-lg" id="displayRefLights">
+          <div class="ref-light waiting" id="dispRef1"></div>
+          <div class="ref-light waiting" id="dispRef2"></div>
+          <div class="ref-light waiting" id="dispRef3"></div>
+        </div>
+
+        <div class="prediction" id="displayPrediction"></div>
       </div>
 
-      <div id="displayPlateLoader" style="padding:0 40px"></div>
-
-      <div class="ref-lights ref-lights-lg" id="displayRefLights">
-        <div class="ref-light waiting" id="dispRef1"></div>
-        <div class="ref-light waiting" id="dispRef2"></div>
-        <div class="ref-light waiting" id="dispRef3"></div>
+      <!-- Right: Rack height badge -->
+      <div class="display-body-right">
+        <div class="rack-height-badge no-rack" id="rackHeightBadge">
+          <div class="rack-height-label" id="rackHeightLabel">Squat Rack</div>
+          <div class="rack-height-value" id="rackHeightValue">—</div>
+        </div>
       </div>
-
-      <div class="prediction" id="displayPrediction"></div>
     </div>
 
+    <!-- Bottom bar: On Deck | Flight + Division + Mini Order | In the Hole -->
     <div class="display-bottom">
       <!-- On Deck -->
       <div class="ondeck-item">
@@ -64,10 +129,11 @@
         <div class="ondeck-weight" id="onDeckWeight"></div>
       </div>
       
-      <!-- Center - mini order -->
-      <div style="text-align:center">
-        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Flight Order</div>
-        <div id="miniOrder" style="font-size:0.8rem;color:var(--text-secondary)"></div>
+      <!-- Center: Flight/Division info + mini order -->
+      <div class="display-bottom-info">
+        <div class="flight-division-tag" id="flightDivisionTag"></div>
+        <div class="section-label">Flight Order</div>
+        <div class="mini-order-row" id="miniOrder"></div>
       </div>
       
       <!-- In the Hole -->
@@ -111,34 +177,16 @@
 
       socket.on('decision_made', (data) => {
         if (data.meetId !== meetId) return;
-        // Show ref lights
         if (data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
         if (data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
         if (data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
-        
-        // Flash decision
-        if (data.result) {
-          showDecisionFlash(data.result);
-        }
+        if (data.result) showDecisionFlash(data.result);
       });
 
-      socket.on('timer_start', (data) => {
-        if (data.meetId !== meetId) return;
-        displayTimer.start(data.seconds);
-      });
-      socket.on('timer_stop', (data) => {
-        if (data.meetId !== meetId) return;
-        displayTimer.stop();
-      });
-      socket.on('timer_reset', (data) => {
-        if (data.meetId !== meetId) return;
-        displayTimer.reset(data.seconds || 60);
-      });
-      socket.on('timer', (data) => {
-        if (data.meetId !== meetId) return;
-        displayTimer.seconds = data.seconds;
-        displayTimer.render();
-      });
+      socket.on('timer_start', (data) => { if (data.meetId !== meetId) return; displayTimer.start(data.seconds); });
+      socket.on('timer_stop',  (data) => { if (data.meetId !== meetId) return; displayTimer.stop(); });
+      socket.on('timer_reset', (data) => { if (data.meetId !== meetId) return; displayTimer.reset(data.seconds || 60); });
+      socket.on('timer',       (data) => { if (data.meetId !== meetId) return; displayTimer.seconds = data.seconds; displayTimer.render(); });
 
       // Load initial state
       try {
@@ -152,14 +200,15 @@
             attempt: order[idx]?.currentAttempt,
             liftType: state.current_lift_type || 'squat',
             attemptNumber: state.current_attempt_number || 1,
-            liftingOrder: order
+            liftingOrder: order,
+            flight: state.current_flight || 'A'
           });
         }
       } catch (e) { console.log('No initial state'); }
     }
 
     function updateDisplay(data) {
-      const { lifter, attempt, liftType, attemptNumber, liftingOrder } = data;
+      const { lifter, attempt, liftType, attemptNumber, liftingOrder, flight } = data;
       
       if (!lifter) return;
       
@@ -169,21 +218,45 @@
       });
 
       document.getElementById('displayLifterName').textContent = lifter.name;
-      document.getElementById('displayAttemptInfo').textContent = 
-        `${lifter.team ? lifter.team + ' · ' : ''}${lifter.division_name || ''} ${lifter.weight_class_name ? '· ' + lifter.weight_class_name : ''}`;
+
+      // Attempt info: just team — no gender string here
+      const parts = [];
+      if (lifter.team) parts.push(lifter.team);
+      document.getElementById('displayAttemptInfo').textContent = parts.join(' · ');
       
       const weight = attempt?.weight || lifter.currentWeight || 0;
       document.getElementById('displayWeight').innerHTML = weight > 0 ? `${weight} <span>kg</span>` : '—';
       document.getElementById('displayLiftInfo').textContent = `${LIFT_NAMES[liftType] || liftType} — Attempt ${attemptNumber}`;
       
       // Plate loader
-      if (weight > 0) {
-        document.getElementById('displayPlateLoader').innerHTML = renderPlateLoader(weight);
+      document.getElementById('displayPlateLoader').innerHTML = weight > 0 ? renderPlateLoader(weight) : '';
+
+      // ── Rack height badge ──────────────────────────────────────────────────
+      const badge = document.getElementById('rackHeightBadge');
+      const rackLabel = document.getElementById('rackHeightLabel');
+      const rackValue = document.getElementById('rackHeightValue');
+      
+      let rackHeight = '';
+      let rackLabelText = '';
+      if (liftType === 'squat') {
+        rackHeight = lifter.squat_rack_height || lifter.rack_height || '';
+        rackLabelText = 'Squat Rack';
+      } else if (liftType === 'bench') {
+        rackHeight = lifter.bench_rack_height || lifter.rack_height || '';
+        rackLabelText = 'Bench Rack';
       } else {
-        document.getElementById('displayPlateLoader').innerHTML = '';
+        rackHeight = '';  // Deadlift has no rack
       }
 
-      // On deck / in the hole
+      if (rackHeight && rackHeight.trim()) {
+        badge.classList.remove('no-rack');
+        rackLabel.textContent = rackLabelText;
+        rackValue.textContent = rackHeight.trim();
+      } else {
+        badge.classList.add('no-rack');
+      }
+
+      // ── On Deck / In the Hole ──────────────────────────────────────────────
       if (liftingOrder) {
         const currentIdx = liftingOrder.findIndex(l => l.id === lifter.id);
         const onDeck = liftingOrder[currentIdx + 1];
@@ -194,8 +267,18 @@
         document.getElementById('inHoleName').textContent = inHole?.name || '—';
         document.getElementById('inHoleWeight').textContent = inHole?.currentWeight ? `${inHole.currentWeight} kg` : '';
         
-        // Mini order
-        const miniHtml = liftingOrder.slice(0, 8).map((l, i) => {
+        // Flight + Division tag (no gender prefix)
+        const flightLabel = flight || data.flight || '';
+        const divName = lifter.division_name || '';
+        const wcName = lifter.weight_class_name || '';
+        const tagParts = [];
+        if (flightLabel) tagParts.push(`Flight ${flightLabel}`);
+        if (divName) tagParts.push(divName);
+        if (wcName) tagParts.push(wcName);
+        document.getElementById('flightDivisionTag').textContent = tagParts.join(' · ');
+
+        // Mini order: first names + weight
+        const miniHtml = liftingOrder.slice(0, 10).map((l, i) => {
           const isCurrent = l.id === lifter.id;
           return `<span style="${isCurrent ? 'color:var(--accent-secondary);font-weight:700' : ''}">${escapeHtml(l.name.split(' ')[0])}${l.currentWeight ? ` (${l.currentWeight})` : ''}</span>`;
         }).join(' → ');
@@ -209,7 +292,6 @@
       flash.textContent = result === 'good' ? 'GOOD LIFT' : 'NO LIFT';
       flash.className = `decision-flash ${result === 'good' ? 'decision-good' : 'decision-bad'}`;
       overlay.classList.add('show');
-      
       setTimeout(() => overlay.classList.remove('show'), 3000);
     }
 

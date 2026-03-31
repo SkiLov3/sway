@@ -100,11 +100,40 @@ function initSchema() {
     );
   `);
 
-  // Simple migration strategy for existing DBs
-  try {
-    db.exec("ALTER TABLE lifters ADD COLUMN gender TEXT DEFAULT 'M' CHECK(gender IN ('M', 'F', 'X'))");
-  } catch (e) {
-    // Column likely already exists
+  // ── Versioned migrations ──────────────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_versions (
+      version INTEGER PRIMARY KEY,
+      applied_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  const appliedVersions = new Set(
+    db.prepare('SELECT version FROM schema_versions').all().map(r => r.version)
+  );
+
+  const migrations = [
+    {
+      version: 1,
+      description: 'Add gender column to lifters',
+      sql: "ALTER TABLE lifters ADD COLUMN gender TEXT DEFAULT 'M' CHECK(gender IN ('M', 'F', 'X'))",
+    },
+    // Add future migrations here: { version: N, description: '...', sql: '...' }
+  ];
+
+  for (const m of migrations) {
+    if (appliedVersions.has(m.version)) continue;
+    try {
+      db.exec(m.sql);
+      db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
+      console.log(`[DB] Applied migration v${m.version}: ${m.description}`);
+    } catch (e) {
+      // 'duplicate column name' means it was already applied before version tracking
+      if (!e.message.includes('duplicate column name')) {
+        console.warn(`[DB] Migration v${m.version} warning: ${e.message}`);
+      }
+      db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
+    }
   }
 }
 
