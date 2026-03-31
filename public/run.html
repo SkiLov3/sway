@@ -97,8 +97,7 @@
           <!-- Timer -->
           <div class="timer" id="timerDisplay">1:00</div>
           <div class="timer-controls">
-            <button class="btn btn-success btn-sm" onclick="startTimer()">▶ Start</button>
-            <button class="btn btn-outline btn-sm" onclick="stopTimer()">⏸ Pause</button>
+            <button class="btn btn-success btn-sm" id="timerToggleBtn" onclick="toggleTimer()">▶ Start</button>
             <button class="btn btn-outline btn-sm" onclick="resetTimer()">↺ Reset</button>
           </div>
         </div>
@@ -189,7 +188,14 @@
 
       timer = new CompetitionTimer(document.getElementById('timerDisplay'), 
         (s) => socket.send('timer', { seconds: s, meetId }),
-        () => socket.send('timer_expired', { meetId })
+        () => {
+          socket.send('timer_expired', { meetId });
+          const btn = document.getElementById('timerToggleBtn');
+          if (btn) {
+            btn.innerHTML = '▶ Start';
+            btn.className = 'btn btn-success btn-sm';
+          }
+        }
       );
       timer.render();
 
@@ -439,9 +445,30 @@
       socket.send('state_changed', { meetId, flight });
     }
 
-    function startTimer() { timer.start(); socket.send('timer_start', { meetId, seconds: timer.seconds }); }
-    function stopTimer() { timer.stop(); socket.send('timer_stop', { meetId }); }
-    function resetTimer() { timer.reset(60); socket.send('timer_reset', { meetId, seconds: 60 }); }
+    function toggleTimer() {
+      const btn = document.getElementById('timerToggleBtn');
+      if (timer.running) {
+        timer.stop();
+        socket.send('timer_stop', { meetId });
+        btn.innerHTML = '▶ Start';
+        btn.className = 'btn btn-success btn-sm';
+      } else {
+        timer.start();
+        socket.send('timer_start', { meetId, seconds: timer.seconds });
+        btn.innerHTML = '⏸ Pause';
+        btn.className = 'btn btn-warning btn-sm';
+      }
+    }
+
+    function resetTimer() { 
+      timer.reset(60); 
+      socket.send('timer_reset', { meetId, seconds: 60 });
+      const btn = document.getElementById('timerToggleBtn');
+      if (btn) {
+        btn.innerHTML = '▶ Start';
+        btn.className = 'btn btn-success btn-sm';
+      }
+    }
 
     init();
   </script>
