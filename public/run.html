@@ -166,6 +166,7 @@
     let meet = null;
     let refDecisions = { ref1: '', ref2: '', ref3: '' };
     let timer = null;
+    let pendingResetId = null;
 
     createSidebar(meetId, '', 'run');
 
@@ -240,9 +241,12 @@
                 <button class="result-btn result-btn-good" onclick="event.stopPropagation();quickResult('${a.id}','good')" title="Good lift">✓</button>
                 <button class="result-btn result-btn-bad" onclick="event.stopPropagation();quickResult('${a.id}','no_good')" title="No lift">✕</button>
               `).join('')}
-              ${attempts.filter(a => a.weight && a.result !== 'pending').map(a => `
-                <button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.75rem" onclick="event.stopPropagation();resetAttempt('${a.id}')" title="Reset this attempt">↺ Reset</button>
-              `).join('')}
+              ${attempts.filter(a => a.weight && a.result !== 'pending').map(a => {
+                const isPending = pendingResetId === a.id;
+                const btnClass = isPending ? 'btn-danger' : 'btn-outline';
+                const btnText = isPending ? 'Confirm?' : '↺ Reset';
+                return `<button class="btn ${btnClass} btn-sm" style="padding:4px 8px;font-size:0.75rem" onclick="event.stopPropagation();resetAttempt('${a.id}')" title="Reset this attempt">${btnText}</button>`;
+              }).join('')}
             </td>
           </tr>
         `;
@@ -333,7 +337,22 @@
     }
 
     async function resetAttempt(id) {
-      if (!confirm('Are you sure you want to completely RESET this attempt? This will permanently erase the current referee decisions and unlock the weight input.')) return;
+      if (pendingResetId !== id) {
+        pendingResetId = id;
+        renderOrder(); // update UI to show "Confirm?"
+        
+        // Auto-cancel confirmation after 4 seconds
+        setTimeout(() => {
+          if (pendingResetId === id) {
+            pendingResetId = null;
+            renderOrder();
+          }
+        }, 4000);
+        return;
+      }
+      
+      // Second click: execute the reset
+      pendingResetId = null;
       try {
         await API.updateAttempt(id, { result: 'pending', ref1: '', ref2: '', ref3: '' });
         showToast('Attempt reset to pending');
