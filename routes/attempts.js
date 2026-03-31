@@ -1,7 +1,29 @@
 const express = require('express');
+const router = express.Router();
 const { getDb, generateId } = require('../db');
 
-const router = express.Router();
+// Helper to broadcast attempt changes
+function broadcastAttempt(req, type, meetId, attempt) {
+  const broadcast = req.app.get('broadcast');
+  if (!broadcast) return;
+
+  const payload = {
+    type,
+    data: {
+      meetId,
+      lifterId: attempt.lifter_id,
+      id: attempt.id,
+      liftType: attempt.lift_type,
+      attemptNumber: attempt.attempt_number,
+      weight: attempt.weight,
+      result: attempt.result,
+      ref1: attempt.ref1,
+      ref2: attempt.ref2,
+      ref3: attempt.ref3
+    }
+  };
+  broadcast(payload);
+}
 
 // Get attempts for a lifter
 router.get('/lifter/:lifterId', (req, res) => {
@@ -38,22 +60,8 @@ router.put('/:id', (req, res) => {
     `).run(weight, result, ref1, ref2, ref3, req.params.id);
 
     const updated = db.prepare('SELECT * FROM attempts WHERE id = ?').get(req.params.id);
-    
-    // Broadcast update
-    const broadcast = req.app.get('broadcast');
-    if (broadcast) {
-      const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(updated.lifter_id);
-      broadcast({ 
-        type: 'attempt_updated', 
-        data: { 
-          meetId: lifter?.meet_id, 
-          lifterId: updated.lifter_id, 
-          id: updated.id, 
-          weight: updated.weight,
-          result: updated.result
-        } 
-      });
-    }
+    const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(updated.lifter_id);
+    broadcastAttempt(req, 'attempt_updated', lifter?.meet_id, updated);
 
     res.json(updated);
   } catch (err) {
@@ -101,23 +109,8 @@ router.put('/set/:lifterId/:liftType/:attemptNumber', (req, res) => {
       attempt = db.prepare('SELECT * FROM attempts WHERE id = ?').get(attempt.id);
     }
 
-    // Broadcast update
-    const broadcast = req.app.get('broadcast');
-    if (broadcast) {
-      const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(attempt.lifter_id);
-      broadcast({ 
-        type: 'attempt_updated', 
-        data: { 
-          meetId: lifter?.meet_id, 
-          lifterId: attempt.lifter_id, 
-          id: attempt.id, 
-          weight: attempt.weight,
-          result: attempt.result,
-          liftType: attempt.lift_type,
-          attemptNumber: attempt.attempt_number
-        } 
-      });
-    }
+    const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(attempt.lifter_id);
+    broadcastAttempt(req, 'attempt_updated', lifter?.meet_id, attempt);
 
     res.json(attempt);
   } catch (err) {
@@ -167,22 +160,9 @@ router.put('/decision/:lifterId/:liftType/:attemptNumber', (req, res) => {
     const out = processDecision();
     if (out.error) return res.status(out.status).json({ error: out.error });
     
-    // Broadcast decision
-    const broadcast = req.app.get('broadcast');
-    if (broadcast && out.updated) {
+    if (out.updated) {
       const lifter = db.prepare('SELECT meet_id FROM lifters WHERE id = ?').get(out.updated.lifter_id);
-      broadcast({ 
-        type: 'decision_made', 
-        data: { 
-          meetId: lifter?.meet_id, 
-          lifterId: out.updated.lifter_id,
-          attemptId: out.updated.id,
-          result: out.updated.result,
-          ref1: out.updated.ref1,
-          ref2: out.updated.ref2,
-          ref3: out.updated.ref3
-        } 
-      });
+      broadcastAttempt(req, 'decision_made', lifter?.meet_id, out.updated);
     }
 
     res.json(out.updated);

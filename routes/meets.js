@@ -316,6 +316,8 @@ router.put('/:id/state', (req, res) => {
 router.get('/:id/results', (req, res) => {
   const db = getDb();
   
+  const isForecasted = req.query.forecasted === 'true';
+  
   const lifters = db.prepare(`
     SELECT l.*, d.name as division_name, wc.name as weight_class_name
     FROM lifters l
@@ -342,13 +344,21 @@ router.get('/:id/results', (req, res) => {
   const results = lifters.map(lifter => {
     const la = attemptsByLifter[lifter.id] || [];
     const getBest = (type) => {
-      const good = la.filter(a => a.lift_type === type && a.result === 'good');
-      return good.length > 0 ? Math.max(...good.map(a => a.weight)) : 0;
+      const candidates = la.filter(a => {
+        if (a.lift_type !== type) return false;
+        if (a.result === 'good') return true;
+        // In forecasted mode, treat 'pending' as good (Best Case Scenario)
+        if (isForecasted && a.result === 'pending' && a.weight > 0) return true;
+        return false;
+      });
+      return candidates.length > 0 ? Math.max(...candidates.map(a => a.weight)) : 0;
     };
     
     const bestSquat = getBest('squat');
     const bestBench = getBest('bench');
     const bestDeadlift = getBest('deadlift');
+    
+    // Total is only valid if we have at least one successful (or forecasted) lift in each category
     const total = (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) 
       ? bestSquat + bestBench + bestDeadlift : 0;
       
@@ -361,7 +371,8 @@ router.get('/:id/results', (req, res) => {
       bestBench,
       bestDeadlift,
       total,
-      dots
+      dots,
+      isForecasted
     };
   });
 

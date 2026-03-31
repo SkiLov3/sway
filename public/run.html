@@ -165,6 +165,7 @@
     let refDecisions = { ref1: '', ref2: '', ref3: '' };
     let timer = null;
     let pendingResetId = null;
+    let activeFlights = ['A']; // Will be populated in init()
 
     createSidebar(meetId, '', 'run');
 
@@ -173,16 +174,29 @@
       document.getElementById('meetTitle').textContent = meet.name;
       document.title = `${meet.name} — Run — SWAY`;
       
+      // Discover active flights for this platform
+      try {
+        const lifters = await API.getLifters(meetId);
+        const onPlatform = lifters.filter(l => l.platform === platform);
+        const flights = [...new Set(onPlatform.map(l => l.flight))].sort();
+        if (flights.length > 0) activeFlights = flights;
+        
+        // Render flight tabs dynamically
+        renderFlightTabs();
+      } catch (e) {
+        console.error('Failed to discover flights:', e);
+      }
+
       // Load saved state
       try {
         const state = await API.getMeetState(meetId);
         currentLift = state.current_lift_type || 'squat';
         currentAttemptNum = state.current_attempt_number || 1;
-        currentFlight = state.current_flight || 'A';
+        currentFlight = state.current_flight || activeFlights[0];
         
         // Update tabs
         document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === currentLift));
-        document.querySelectorAll('.flight-tab').forEach(t => t.classList.toggle('active', t.dataset.flight === currentFlight));
+        updateFlightTabsUI();
       } catch (e) {}
 
       timer = new CompetitionTimer(document.getElementById('timerDisplay'), 
@@ -424,27 +438,57 @@
     }
 
     function advanceLifter() {
-      currentLifterIdx = Math.min(currentLifterIdx + 1, liftingOrder.length - 1);
-      updateCurrentLifter();
-      resetTimer();
+      if (currentLifterIdx < liftingOrder.length - 1) {
+        currentLifterIdx++;
+        updateCurrentLifter();
+        resetTimer();
+      } else {
+        // End of flight, go to next flight/round
+        advanceRound();
+      }
     }
 
     function advanceRound() {
-      // Check if all lifters in current round are done
-      if (currentAttemptNum < 3) {
-        currentAttemptNum++;
-      } else if (currentLift === 'squat') {
-        currentLift = 'bench';
-        currentAttemptNum = 1;
-      } else if (currentLift === 'bench') {
-        currentLift = 'deadlift';
-        currentAttemptNum = 1;
+      const activeIdx = activeFlights.indexOf(currentFlight);
+      
+      if (activeIdx >= 0 && activeIdx < activeFlights.length - 1) {
+        // Move to next flight, same lift and attempt
+        currentFlight = activeFlights[activeIdx + 1];
+      } else {
+        // Last flight of this round
+        if (currentAttemptNum < 3) {
+          // Restart first flight, next attempt
+          currentFlight = activeFlights[0];
+          currentAttemptNum++;
+        } else {
+          // Last flight, last attempt -> Next Lift
+          currentFlight = activeFlights[0];
+          currentAttemptNum = 1;
+          
+          if (currentLift === 'squat') currentLift = 'bench';
+          else if (currentLift === 'bench') currentLift = 'deadlift';
+          // If deadlift, stay or reset
+        }
       }
       
+      // Update UI
       document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === currentLift));
+      updateFlightTabsUI();
+      
       currentLifterIdx = 0;
       loadOrder();
       resetTimer();
+    }
+    
+    function renderFlightTabs() {
+      const container = document.getElementById('flightTabs');
+      container.innerHTML = activeFlights.map(f => `
+        <button class="flight-tab ${f === currentFlight ? 'active' : ''}" data-flight="${f}" onclick="switchFlight('${f}')">${f}</button>
+      `).join('');
+    }
+
+    function updateFlightTabsUI() {
+      document.querySelectorAll('.flight-tab').forEach(t => t.classList.toggle('active', t.dataset.flight === currentFlight));
     }
 
     function switchLift(lift) {
@@ -452,13 +496,14 @@
       currentAttemptNum = 1;
       currentLifterIdx = 0;
       document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === lift));
+      updateFlightTabsUI();
       loadOrder();
     }
 
     function switchFlight(flight) {
       currentFlight = flight;
       currentLifterIdx = 0;
-      document.querySelectorAll('.flight-tab').forEach(t => t.classList.toggle('active', t.dataset.flight === flight));
+      updateFlightTabsUI();
       loadOrder();
     }
 

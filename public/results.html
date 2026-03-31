@@ -76,18 +76,18 @@
       
       await loadResults();
       
-      // Auto-refresh
+      await loadResults();
+      
+      // Auto-refresh via WebSockets (100% event-driven, no more polling)
       socket.connect();
       socket.on('attempt_updated', () => loadResults());
       socket.on('decision_made', () => loadResults());
-      
-      // Also poll every 15s
-      setInterval(loadResults, 15000);
+      socket.on('state_changed', () => loadResults());
     }
 
     async function loadResults() {
       try {
-        resultsData = await API.getResults(meetId);
+        resultsData = await API.getResults(meetId, isForecasted);
         renderResults();
       } catch (err) {
         showToast('Failed to load results: ' + err.message, 'error');
@@ -165,8 +165,18 @@
           }
           
           // Total and DOTS
-          html += `<td class="total-cell">${lifter.total > 0 ? lifter.total : '—'}</td>`;
-          html += `<td style="font-weight:700">${lifter.dots > 0 ? lifter.dots : '—'}</td>`;
+          const isProj = lifter.isForecasted && attempts.some(a => a.result === 'pending' && a.weight > 0);
+          html += `
+            <td class="total-cell">
+              ${lifter.total > 0 ? lifter.total : '—'}
+              ${isProj ? '<div class="forecasted-badge">Projected</div>' : ''}
+            </td>
+          `;
+          html += `
+            <td style="font-weight:700">
+              ${lifter.dots > 0 ? lifter.dots : '—'}
+            </td>
+          `;
           html += `</tr>`;
         });
 
@@ -198,8 +208,9 @@
       const btn = document.getElementById('forecastedBtn');
       btn.classList.toggle('btn-primary', isForecasted);
       btn.classList.toggle('btn-outline', !isForecasted);
-      // TODO: implement forecasted calculations
-      showToast(isForecasted ? 'Showing forecasted standings' : 'Showing actual standings');
+      
+      loadResults(); // Reload with new calculation mode
+      showToast(isForecasted ? 'Showing projected standings (Best Case)' : 'Showing actual standings');
     }
 
     function exportResults() {

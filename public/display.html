@@ -159,6 +159,7 @@
     const platform = parseInt(getParam('platform') || '1');
     let displayTimer = null;
     let displayLifterId = null;
+    let isFlashing = false; // Flag to prevent state reloads during decision banners
 
     async function init() {
       try {
@@ -177,11 +178,11 @@
       socket.connect();
       
       socket.on('state_changed', (data) => {
-        if (data.meetId === meetId) loadState();
+        if (data.meetId === meetId && !isFlashing) loadState();
       });
 
       socket.on('attempt_updated', (data) => {
-        if (data.meetId === meetId) loadState();
+        if (data.meetId === meetId && !isFlashing) loadState();
       });
 
       socket.on('decision_made', (data) => {
@@ -198,9 +199,14 @@
           displayTimer.stop();
           displayTimer.reset(60);
           showDecisionFlash(data.result);
-          // Wait for the full banner duration before transitioning to next lifter
+          
+          isFlashing = true; // Lock the display on this lifter
+          
           const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
-          setTimeout(loadState, durationMs);
+          setTimeout(() => {
+            isFlashing = false;
+            loadState(); // Now it's safe to show the next lifter
+          }, durationMs);
         }
       });
 
