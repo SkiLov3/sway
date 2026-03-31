@@ -212,9 +212,6 @@
           }
         }
       });
-      socket.on('state_changed', (data) => {
-        if (data.meetId === meetId) loadOrder();
-      });
     }
 
     async function loadOrder() {
