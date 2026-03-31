@@ -1,6 +1,6 @@
 {
   "name": "sway",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Local powerlifting meet management app",
   "main": "server.js",
   "scripts": {
