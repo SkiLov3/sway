@@ -30,6 +30,7 @@ const API = {
   createMeet: (data) => api('/meets', { method: 'POST', body: data }),
   updateMeet: (id, data) => api(`/meets/${id}`, { method: 'PUT', body: data }),
   deleteMeet: (id) => api(`/meets/${id}`, { method: 'DELETE' }),
+  resetMeet: (id) => api(`/meets/${id}/reset`, { method: 'POST' }),
   
   // Divisions
   getDivisions: (meetId) => api(`/meets/${meetId}/divisions`),

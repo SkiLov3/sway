@@ -118,6 +118,43 @@ router.delete('/:id', (req, res) => {
   }
 });
 
+// Reset meet strictly to openers
+router.post('/:id/reset', (req, res) => {
+  try {
+    const db = getDb();
+    
+    // Perform bulk transactional wipe
+    const resetTx = db.transaction(() => {
+      // Find all lifters in this meet
+      const lifters = db.prepare('SELECT id FROM lifters WHERE meet_id = ?').all(req.params.id);
+      if (lifters.length === 0) return;
+      
+      const lifterIds = lifters.map(l => l.id);
+      const inClause = lifterIds.map(() => '?').join(',');
+      
+      // Delete attempt 2 and 3 entirely
+      db.prepare(`DELETE FROM attempts WHERE lifter_id IN (${inClause}) AND attempt_number > 1`).run(...lifterIds);
+      
+      // Reset attempt 1 back to unjudged state
+      db.prepare(`
+        UPDATE attempts SET result = 'pending', ref1 = NULL, ref2 = NULL, ref3 = NULL
+        WHERE lifter_id IN (${inClause}) AND attempt_number = 1
+      `).run(...lifterIds);
+      
+      // Reset the meet pointer state
+      db.prepare(`
+        UPDATE meet_state SET current_lift_type = 'squat', current_flight = 'A', current_attempt_number = 1
+        WHERE meet_id = ?
+      `).run(req.params.id);
+    });
+    
+    resetTx();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Divisions ---
 
 router.get('/:id/divisions', (req, res) => {
