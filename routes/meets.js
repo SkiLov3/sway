@@ -76,15 +76,15 @@ router.put('/:id', (req, res) => {
     }
     if (federation && federation.length > MAX_FED) return res.status(400).json({ error: `Federation must be ${MAX_FED} characters or fewer` });
 
-    // Validate short_code: alphanumeric only, max 12 chars
+    // Validate short_code: alphanumeric only, max 12 chars, case-insensitive (NOCASE)
     let resolvedShortCode = meet.short_code ?? '';
     if (short_code !== undefined) {
       const code = short_code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (code.length > 12) return res.status(400).json({ error: 'Short code must be 12 characters or fewer' });
       // Check uniqueness if non-empty
       if (code !== '') {
-        const existing = db.prepare('SELECT id FROM meets WHERE short_code = ? AND id != ?').get(code, req.params.id);
-        if (existing) return res.status(409).json({ error: `Short code '${code}' is already in use` });
+        const existing = db.prepare('SELECT id, name FROM meets WHERE short_code = ? AND id != ?').get(code, req.params.id);
+        if (existing) return res.status(409).json({ error: `Short code "${code}" is already in use by "${existing.name}"` });
       }
       resolvedShortCode = code;
     }
@@ -135,8 +135,9 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   try {
     const db = getDb();
-    db.prepare('DELETE FROM meets WHERE id = ?').run(req.params.id);
-    res.json({ success: true });
+    const result = db.prepare('DELETE FROM meets WHERE id = ?').run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'Meet not found' });
+    res.json({ success: true, changes: result.changes });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -44,7 +44,7 @@ function initSchema() {
       federation TEXT DEFAULT '',
       status TEXT DEFAULT 'setup',
       plates_config TEXT DEFAULT '{}',
-      short_code TEXT DEFAULT '',
+      short_code TEXT COLLATE NOCASE DEFAULT '',
       decision_display_seconds INTEGER DEFAULT 15,
       created_at TEXT DEFAULT (datetime('now'))
     );
@@ -152,8 +152,13 @@ function initSchema() {
     },
     {
       version: 4,
-      description: 'Add bench_safety_height and bench_blocks to lifters',
-      sql: "ALTER TABLE lifters ADD COLUMN bench_safety_height TEXT DEFAULT '4'; ALTER TABLE lifters ADD COLUMN bench_blocks TEXT DEFAULT 'N';",
+      description: 'Add bench_safety_height to lifters',
+      sql: "ALTER TABLE lifters ADD COLUMN bench_safety_height TEXT DEFAULT '4'",
+    },
+    {
+      version: 5,
+      description: 'Add bench_blocks to lifters',
+      sql: "ALTER TABLE lifters ADD COLUMN bench_blocks TEXT DEFAULT 'N'",
     },
     // Add future migrations here: { version: N, description: '...', sql: '...' }
   ];
