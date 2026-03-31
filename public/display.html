@@ -192,12 +192,14 @@
         if (data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
         if (data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
         
-        // Final decision: stop the clock, flash result, reload state after flash
+        // Final decision: stop the clock, flash result, reload state after banner expires
         if (data.result && (data.result === 'good' || data.result === 'no_good')) {
           displayTimer.stop();
           displayTimer.reset(60);
           showDecisionFlash(data.result);
-          setTimeout(loadState, 2000); // Reload everything after the flash
+          // Wait for the full banner duration before transitioning to next lifter
+          const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
+          setTimeout(loadState, durationMs);
         }
       });
 
