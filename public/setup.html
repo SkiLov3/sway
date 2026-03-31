@@ -41,7 +41,7 @@
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
     <div class="header-title" id="meetTitle">Meet Setup</div>
     <div class="header-actions">
-      <button class="btn btn-danger btn-sm" onclick="resetMeetToOpeners()" style="margin-right: 8px">⚠️ Reset Meet to Openers</button>
+      <button class="btn btn-danger btn-sm" id="resetMeetBtn" onclick="resetMeetToOpeners()" style="margin-right: 8px">⚠️ Reset Meet to Openers</button>
       <button class="btn btn-success btn-sm" onclick="startMeet()">▶ Start Meet</button>
     </div>
   </header>
@@ -449,10 +449,26 @@
       window.location = `/run.html?meetId=${meetId}&platform=1`;
     }
 
+    let pendingResetMeet = false;
     async function resetMeetToOpeners() {
-      if (!confirm("WARNING: Are you sure you want to completely clear the progress of this meet?\n\nThis will permanently wipe all referee decisions, delete all Attempt 2s and 3s, and reset the entire meet state back to Squat Attempt 1.")) return;
-      if (!confirm("DOUBLE CONFIRMATION: This action is permanent and cannot be undone.\n\nClick OK to execute the reset.")) return;
+      const btn = document.getElementById('resetMeetBtn');
+      if (!pendingResetMeet) {
+        pendingResetMeet = true;
+        btn.textContent = 'DOUBLE CLICK TO CONFIRM RESET';
+        btn.classList.add('btn-danger'); // assure it's red
+        
+        setTimeout(() => {
+          if (pendingResetMeet) {
+            pendingResetMeet = false;
+            btn.textContent = '⚠️ Reset Meet to Openers';
+          }
+        }, 5000);
+        return;
+      }
       
+      // Execute the reset
+      pendingResetMeet = false;
+      btn.textContent = '⚠️ Reset Meet to Openers';
       try {
         await API.resetMeet(meetId);
         showToast('Meet has been completely reset to openers!');
