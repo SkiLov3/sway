@@ -79,6 +79,16 @@
       localStorage.setItem(`sway_ref_${meetId}`, num);
       document.querySelectorAll('.ref-select-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(`refSelect${num}`).classList.add('active');
+
+      // Allow resubmission when switching position (useful for testing,
+      // and in real meets each phone stays on one position anyway)
+      if (hasSubmitted) {
+        hasSubmitted = false;
+        document.getElementById('goodLiftBtn').disabled = false;
+        document.getElementById('noLiftBtn').disabled = false;
+        document.getElementById('refButtons').style.display = 'flex';
+        document.getElementById('decisionStatus').style.display = 'none';
+      }
     }
 
     socket.connect();
