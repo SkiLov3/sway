@@ -197,7 +197,7 @@
         // Mini order
         const miniHtml = liftingOrder.slice(0, 8).map((l, i) => {
           const isCurrent = l.id === lifter.id;
-          return `<span style="${isCurrent ? 'color:var(--accent-secondary);font-weight:700' : ''}">${l.name.split(' ')[0]}${l.currentWeight ? ` (${l.currentWeight})` : ''}</span>`;
+          return `<span style="${isCurrent ? 'color:var(--accent-secondary);font-weight:700' : ''}">${escapeHtml(l.name.split(' ')[0])}${l.currentWeight ? ` (${l.currentWeight})` : ''}</span>`;
         }).join(' → ');
         document.getElementById('miniOrder').innerHTML = miniHtml;
       }

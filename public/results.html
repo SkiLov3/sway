@@ -195,7 +195,7 @@
             return a.result === 'no_good' ? `-${a.weight}` : a.weight;
           };
           
-          csv += `"${divName}","${wcName}",${lifter.place},"${lifter.name}","${lifter.team || ''}",${lifter.body_weight || ''},`;
+          csv += `${escapeCSV(divName)},${escapeCSV(wcName)},${lifter.place},${escapeCSV(lifter.name)},${escapeCSV(lifter.team || '')},${lifter.body_weight || ''},`;
           csv += `${getWeight('squat',1)},${getWeight('squat',2)},${getWeight('squat',3)},`;
           csv += `${getWeight('bench',1)},${getWeight('bench',2)},${getWeight('bench',3)},`;
           csv += `${getWeight('deadlift',1)},${getWeight('deadlift',2)},${getWeight('deadlift',3)},`;
@@ -209,12 +209,6 @@
       a.download = `results_${meetId.slice(0,8)}.csv`;
       a.click();
       showToast('Results exported to CSV');
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text || '';
-      return div.innerHTML;
     }
 
     init();

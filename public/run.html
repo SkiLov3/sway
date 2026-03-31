@@ -388,12 +388,6 @@
     function stopTimer() { timer.stop(); socket.send('timer_stop', { meetId }); }
     function resetTimer() { timer.reset(60); socket.send('timer_reset', { meetId, seconds: 60 }); }
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text || '';
-      return div.innerHTML;
-    }
-
     init();
   </script>
 </body>

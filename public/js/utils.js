@@ -256,3 +256,25 @@ class CompetitionTimer {
     }
   }
 }
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Escape string for CSV format
+ */
+function escapeCSV(text) {
+  if (text === null || text === undefined) return '';
+  const str = String(text);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}

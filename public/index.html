@@ -76,10 +76,10 @@
               <div class="card meet-card" onclick="window.location='/setup.html?meetId=${meet.id}'">
                 <div class="flex-between">
                   <div class="meet-card-name">${escapeHtml(meet.name)}</div>
-                  <span class="badge badge-${meet.status}">${meet.status}</span>
+                  <span class="badge badge-${escapeHtml(meet.status)}">${escapeHtml(meet.status)}</span>
                 </div>
                 <div class="meet-card-meta">
-                  <span>📅 ${meet.date}</span>
+                  <span>📅 ${escapeHtml(meet.date)}</span>
                   ${meet.federation ? `<span>🏛️ ${escapeHtml(meet.federation)}</span>` : ''}
                 </div>
               </div>
@@ -131,12 +131,6 @@
       } catch (err) {
         showToast('Failed to create meet: ' + err.message, 'error');
       }
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
     }
 
     init();
