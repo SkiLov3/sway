@@ -276,6 +276,13 @@
     }
 
     function updateCurrentLifter() {
+      // Clear out the manual Chief Table referee panel
+      refDecisions = { ref1: '', ref2: '', ref3: '' };
+      [1,2,3].forEach(n => {
+        document.getElementById(`ref${n}White`).classList.remove('active');
+        document.getElementById(`ref${n}Red`).classList.remove('active');
+      });
+
       // Find the first lifter who hasn't completed their current attempt
       const pending = liftingOrder.findIndex(l => {
         const att = l.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);

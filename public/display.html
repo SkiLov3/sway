@@ -157,6 +157,7 @@
     const meetId = getParam('meetId');
     const platform = parseInt(getParam('platform') || '1');
     let displayTimer = null;
+    let displayLifterId = null;
 
     async function init() {
       try {
@@ -177,6 +178,7 @@
 
       socket.on('decision_made', (data) => {
         if (data.meetId !== meetId) return;
+        if (data.lifterId && data.lifterId !== displayLifterId) return;
         
         // Update the specific referee light that just voted
         if (data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
@@ -217,6 +219,7 @@
       const { lifter, attempt, liftType, attemptNumber, liftingOrder, flight } = data;
       
       if (!lifter) return;
+      displayLifterId = lifter.id;
       
       // Update ref lights
       [1,2,3].forEach(n => {
