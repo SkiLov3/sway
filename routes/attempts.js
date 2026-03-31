@@ -107,7 +107,7 @@ router.put('/decision/:lifterId/:liftType/:attemptNumber', (req, res) => {
 
       // Auto-determine result based on majority
       let result = attempt.result;
-      const votes = [r1, r2, r3].filter(v => v !== '');
+      const votes = [r1, r2, r3].filter(v => v !== '' && v !== null && v !== undefined);
       if (votes.length === 3) {
         const whites = votes.filter(v => v === 'white').length;
         result = whites >= 2 ? 'good' : 'no_good';
