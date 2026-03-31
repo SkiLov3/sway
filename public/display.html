@@ -69,12 +69,30 @@
       text-overflow: ellipsis;
     }
 
-    /* ── Decision flash overlay ── */
-    .display-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+    /* ── Decision flash overlay — full-screen takeover ── */
+    .display-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 100; pointer-events: none;
+      opacity: 0; transition: opacity 0.6s ease;
+    }
     .display-overlay.show { opacity: 1; }
-    .decision-flash { font-family: 'Outfit'; font-weight: 900; font-size: 5rem; padding: 40px 80px; border-radius: 20px; }
-    .decision-good { background: rgba(255,255,255,0.95); color: #0a0a1a; }
-    .decision-bad { background: rgba(192,57,43,0.95); color: white; }
+
+    .decision-flash {
+      font-family: 'Outfit'; font-weight: 900;
+      font-size: 7rem; line-height: 1;
+      letter-spacing: -2px;
+    }
+    .decision-countdown {
+      font-family: 'Outfit'; font-weight: 700;
+      font-size: 1.4rem;
+      margin-top: 20px;
+      opacity: 0.7;
+    }
+    .decision-good-bg  { background: #ffffff; }
+    .decision-bad-bg   { background: #c0392b; }
+    .decision-good { color: #0a0a1a; }
+    .decision-bad  { color: white; }
 
     .fullscreen-hint { position: fixed; bottom: 10px; right: 10px; font-size: 0.7rem; color: var(--text-muted); cursor: pointer; z-index: 50; opacity: 0.5; }
     .fullscreen-hint:hover { opacity: 1; cursor: default; }
@@ -160,6 +178,7 @@
 
   <div class="display-overlay" id="decisionOverlay">
     <div class="decision-flash" id="decisionFlash"></div>
+    <div class="decision-countdown" id="decisionCountdown"></div>
   </div>
 
   <div class="fullscreen-hint" ondblclick="toggleFullscreen()">Double-click for fullscreen</div>
@@ -352,18 +371,40 @@
     }
 
     function showDecisionFlash(result) {
-      const overlay = document.getElementById('decisionOverlay');
-      const flash = document.getElementById('decisionFlash');
-      
-      // Clear any existing timeout to avoid premature hiding if multiple decisions arrive
-      if (window.fadeTimeout) clearTimeout(window.fadeTimeout);
-      
+      const overlay  = document.getElementById('decisionOverlay');
+      const flash    = document.getElementById('decisionFlash');
+      const countdown = document.getElementById('decisionCountdown');
+
+      // Clear any existing timers
+      if (window.fadeTimeout)      clearTimeout(window.fadeTimeout);
+      if (window.countdownInterval) clearInterval(window.countdownInterval);
+
+      const totalSecs = window.decisionDisplaySeconds || 15;
+
+      // Set text and full-screen background colour
       flash.textContent = result === 'good' ? 'GOOD LIFT' : 'NO LIFT';
-      flash.className = `decision-flash ${result === 'good' ? 'decision-good' : 'decision-bad'}`;
-      overlay.classList.add('show');
-      
-      const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
-      window.fadeTimeout = setTimeout(() => overlay.classList.remove('show'), durationMs);
+      flash.className   = `decision-flash ${result === 'good' ? 'decision-good' : 'decision-bad'}`;
+      overlay.className = `display-overlay show ${result === 'good' ? 'decision-good-bg' : 'decision-bad-bg'}`;
+
+      // Live countdown
+      let remaining = totalSecs;
+      countdown.textContent = `Next lifter in ${remaining}s`;
+      window.countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          countdown.textContent = `Next lifter in ${remaining}s`;
+        } else {
+          clearInterval(window.countdownInterval);
+          countdown.textContent = '';
+        }
+      }, 1000);
+
+      // Fade out after full duration
+      window.fadeTimeout = setTimeout(() => {
+        overlay.classList.remove('show');
+        clearInterval(window.countdownInterval);
+        countdown.textContent = '';
+      }, totalSecs * 1000);
     }
 
     function toggleFullscreen() {
