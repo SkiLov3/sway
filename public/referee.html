@@ -64,6 +64,7 @@
     let currentLifter = null;
     let currentLiftType = '';
     let currentAttemptNum = 1;
+    let currentAttemptData = null;
     let hasSubmitted = false;
 
     // Try to load ref selection from storage
@@ -80,14 +81,24 @@
       document.querySelectorAll('.ref-select-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(`refSelect${num}`).classList.add('active');
 
-      // Allow resubmission when switching position (useful for testing,
-      // and in real meets each phone stays on one position anyway)
-      if (hasSubmitted) {
+      updateButtonState();
+    }
+
+    function updateButtonState() {
+      if (!selectedRef || !currentAttemptData) return;
+      const refKey = `ref${selectedRef}`;
+      const myVote = currentAttemptData[refKey];
+      
+      if (!myVote) {
         hasSubmitted = false;
         document.getElementById('goodLiftBtn').disabled = false;
         document.getElementById('noLiftBtn').disabled = false;
-        document.getElementById('refButtons').style.display = 'flex';
         document.getElementById('decisionStatus').style.display = 'none';
+      } else {
+        hasSubmitted = true;
+        document.getElementById('goodLiftBtn').disabled = true;
+        document.getElementById('noLiftBtn').disabled = true;
+        document.getElementById('decisionStatus').style.display = 'block';
       }
     }
 
@@ -98,7 +109,7 @@
       currentLifter = data.lifter;
       currentLiftType = data.liftType;
       currentAttemptNum = data.attemptNumber;
-      hasSubmitted = false;
+      currentAttemptData = data.attempt;
       
       document.getElementById('refLifterName').textContent = data.lifter?.name || '—';
       document.getElementById('refWeight').textContent = data.attempt?.weight ? `${data.attempt.weight} kg` : '—';
@@ -113,11 +124,7 @@
       document.getElementById('refLiftInfo').textContent = team;
       document.getElementById('refDivisionInfo').textContent = divParts.join(' · ');
       
-      // Re-enable buttons
-      document.getElementById('refButtons').style.display = 'flex';
-      document.getElementById('decisionStatus').style.display = 'none';
-      document.getElementById('goodLiftBtn').disabled = false;
-      document.getElementById('noLiftBtn').disabled = false;
+      updateButtonState();
     });
 
     async function submitRefDecision(decision) {
