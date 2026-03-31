@@ -22,9 +22,9 @@
   --accent-secondary: #a29bfe;
   --accent-glow: rgba(108, 92, 231, 0.3);
   
-  --good-lift: #27ae60;
-  --good-lift-bg: #1a5c35;
-  --good-lift-glow: rgba(39, 174, 96, 0.2);
+  --good-lift: #ffffff;
+  --good-lift-bg: rgba(255, 255, 255, 0.15);
+  --good-lift-glow: rgba(255, 255, 255, 0.3);
   --no-lift: #c0392b;
   --no-lift-bg: #6b1f17;
   --no-lift-glow: rgba(192, 57, 43, 0.2);
@@ -175,7 +175,7 @@ body::before {
 }
 
 .btn-success {
-  background: linear-gradient(135deg, var(--good-lift), #219a52);
+  background: linear-gradient(135deg, #27ae60, #219a52);
   color: white;
 }
 
@@ -358,7 +358,7 @@ tr:hover {
 
 .attempt-good {
   background: var(--good-lift-bg) !important;
-  color: #4cdf8a;
+  color: #ffffff;
   border-left: 3px solid var(--good-lift);
 }
 
@@ -732,14 +732,14 @@ tr:hover {
 }
 
 .referee-btn-good {
-  background: linear-gradient(135deg, #27ae60, #219a52);
-  color: white;
-  box-shadow: 0 8px 30px rgba(39, 174, 96, 0.3);
+  background: linear-gradient(135deg, #ffffff, #e0e0e0);
+  color: #0a0a1a;
+  box-shadow: 0 8px 30px rgba(255, 255, 255, 0.3);
 }
 
 .referee-btn-good:hover {
   transform: scale(1.03);
-  box-shadow: 0 12px 40px rgba(39, 174, 96, 0.4);
+  box-shadow: 0 12px 40px rgba(255, 255, 255, 0.4);
 }
 
 .referee-btn-nolift {
