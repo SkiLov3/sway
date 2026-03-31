@@ -161,8 +161,8 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
     });
 
     const insertLifter = db.prepare(`
-      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, squat_rack_height, bench_rack_height)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lifters (id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, lot_number, flight, platform, rack_height, squat_rack_height, bench_rack_height)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertAttempt = db.prepare('INSERT INTO attempts (id, lifter_id, lift_type, attempt_number) VALUES (?, ?, ?, ?)');
 
@@ -206,15 +206,16 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
             (!matchedDiv || wc.division_id === matchedDiv.id)
           );
 
-          const squatRack = (record['Squat Rack'] || record['Squat Rack Height'] || record.squat_rack_height || record.squat_rack || '').trim();
-          const benchRack = (record['Bench Rack'] || record['Bench Rack Height'] || record.bench_rack_height || record.bench_rack || '').trim();
+          const squatRack = record['Squat Rack'] || record.squat_rack || record.squat_rack_height || '';
+          const benchRack = record['Bench Rack'] || record.bench_rack || record.bench_rack_height || '';
+          const rackHeight = record['Rack Height'] || record.rack_height || record.Rack || '';
 
           const lifterId = generateId();
           insertLifter.run(
             lifterId, meetId, name, team,
             matchedDiv?.id || null, matchedWc?.id || null,
             parsedGender, bodyWeight, lot, flight, platform,
-            squatRack, benchRack
+            rackHeight, squatRack, benchRack
           );
 
           // Create attempt placeholders

@@ -91,7 +91,7 @@
         <div class="csv-dropzone" id="csvDropzone" onclick="document.getElementById('csvFile').click()">
           <div style="font-size:2rem;margin-bottom:8px">📄</div>
           <div>Drop CSV file here or click to browse</div>
-          <div style="font-size:0.8rem;margin-top:8px">Columns: Name, Team, Division, Weight Class, Gender, Body Weight, Flight, Lot, Squat Opener, Bench Opener, Deadlift Opener, Squat Rack, Bench Rack</div>
+          <div style="font-size:0.8rem;margin-top:8px">Columns: Name, Team, Division, Weight Class, Gender, Body Weight, Flight, Lot</div>
         </div>
         <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(this)">
         <div id="importResult" style="margin-top:12px"></div>
@@ -436,7 +436,7 @@
     }
 
     function downloadTemplate() {
-      const csv = 'Name,Team,Division,Weight Class,Gender,Body Weight,Flight,Lot,Squat Opener,Bench Opener,Deadlift Opener,Squat Rack,Bench Rack\nJohn Doe,Team Alpha,Men\'s Raw Open,83,M,81.2,A,1,180,120,220,14,7\nJane Smith,Team Beta,Women\'s Raw Open,63,F,61.8,A,2,100,60,130,11,5\n';
+      const csv = 'Name,Team,Division,Weight Class,Gender,Body Weight,Flight,Lot,Squat Rack,Bench Rack,Squat Opener,Bench Opener,Deadlift Opener\nJohn Doe,Team Alpha,Men\'s Raw Open,83,M,81.2,A,1,14,7,180,120,220\nJane Smith,Team Beta,Women\'s Raw Open,63,F,61.8,A,2,12,6,100,60,130\n';
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
