@@ -212,16 +212,44 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
           let parsedGender = (record.Gender || record.gender || record.Sex || record.sex || 'M').trim().toUpperCase().charAt(0);
           if (!['M', 'F', 'X'].includes(parsedGender)) parsedGender = 'M';
           
-          // Try to match division
-          const divName = record.Division || record.division || '';
-          const matchedDiv = divisions.find(d => d.name.toLowerCase() === divName.toLowerCase());
+          // Try to match or auto-create division
+          let divName = record.Division || record.division || '';
+          divName = divName.trim();
+          let matchedDiv = divName ? divisions.find(d => d.name.toLowerCase() === divName.toLowerCase()) : null;
           
-          // Try to match weight class
-          const wcName = record['Weight Class'] || record.weight_class || record.WeightClass || '';
-          const matchedWc = weightClasses.find(wc => 
+          if (divName && !matchedDiv) {
+            matchedDiv = { id: generateId(), meet_id: meetId, name: divName, sort_order: divisions.length };
+            db.prepare('INSERT INTO divisions (id, meet_id, name, sort_order) VALUES (?, ?, ?, ?)').run(
+              matchedDiv.id, matchedDiv.meet_id, matchedDiv.name, matchedDiv.sort_order
+            );
+            divisions.push(matchedDiv);
+          }
+          
+          // Try to match or auto-create weight class
+          let wcName = record['Weight Class'] || record.weight_class || record.WeightClass || '';
+          wcName = wcName.trim();
+          let matchedWc = wcName ? weightClasses.find(wc => 
             wc.name.toLowerCase() === wcName.toLowerCase() && 
             (!matchedDiv || wc.division_id === matchedDiv.id)
-          );
+          ) : null;
+          
+          if (wcName && !matchedWc && matchedDiv) {
+            let parsedMax = parseFloat(wcName);
+            const isPlus = wcName.includes('+');
+            if (isNaN(parsedMax) || isPlus) parsedMax = null;
+            
+            matchedWc = { 
+              id: generateId(), 
+              division_id: matchedDiv.id, 
+              name: wcName, 
+              max_weight: parsedMax, 
+              sort_order: weightClasses.filter(w => w.division_id === matchedDiv.id).length 
+            };
+            db.prepare('INSERT INTO weight_classes (id, division_id, name, max_weight, sort_order) VALUES (?, ?, ?, ?, ?)').run(
+              matchedWc.id, matchedWc.division_id, matchedWc.name, matchedWc.max_weight, matchedWc.sort_order
+            );
+            weightClasses.push(matchedWc);
+          }
 
           const squatRack = record['Squat Rack'] || record.squat_rack || record.squat_rack_height || '';
           const benchRack = record['Bench Rack'] || record.bench_rack || record.bench_rack_height || '';
