@@ -80,19 +80,44 @@
 
     .decision-flash {
       font-family: 'Outfit'; font-weight: 900;
-      font-size: 7rem; line-height: 1;
+      font-size: 8rem; line-height: 1;
       letter-spacing: -2px;
+    }
+    .takeover-lifter-name {
+      font-family: 'Outfit'; font-weight: 800;
+      font-size: 3.5rem;
+      margin-bottom: -10px;
+    }
+    .takeover-ref-lights {
+      display: flex; gap: 60px;
+      margin-top: 40px; margin-bottom: 20px;
+    }
+    .takeover-ref-group {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
+    }
+    .takeover-ref-label {
+      font-family: 'Roboto Condensed'; font-weight: 700;
+      font-size: 0.85rem; text-transform: uppercase;
+      letter-spacing: 2px; opacity: 0.6;
     }
     .decision-countdown {
       font-family: 'Outfit'; font-weight: 700;
-      font-size: 1.4rem;
-      margin-top: 20px;
+      font-size: 1.2rem;
+      margin-top: auto; padding-bottom: 40px;
       opacity: 0.7;
     }
+
+    /* Background Specific Coloring */
     .decision-good-bg  { background: #ffffff; }
     .decision-bad-bg   { background: #c0392b; }
-    .decision-good { color: #0a0a1a; }
-    .decision-bad  { color: white; }
+    
+    .decision-good .decision-flash, .decision-good .takeover-lifter-name, .decision-good .takeover-ref-label, .decision-good .decision-countdown { color: #0a0a1a; }
+    .decision-bad .decision-flash, .decision-bad .takeover-lifter-name, .decision-bad .takeover-ref-label, .decision-bad .decision-countdown { color: white; }
+
+    /* Circle visibility on bright/dark backgrounds */
+    .decision-good-bg .ref-light.white { border: 2px solid rgba(0,0,0,0.1) !important; box-shadow: 0 0 20px rgba(0,0,0,0.05) !important; }
+    .decision-bad-bg .ref-light.red { border: 2px solid rgba(255,255,255,0.2) !important; box-shadow: 0 0 30px rgba(0,0,0,0.2) !important; }
 
     .fullscreen-hint { position: fixed; top: 10px; left: 14px; font-size: 0.65rem; color: var(--text-muted); cursor: pointer; z-index: 50; opacity: 0.35; letter-spacing: 0.5px; }
     .fullscreen-hint:hover { opacity: 0.8; cursor: default; }
@@ -177,7 +202,24 @@
   </div>
 
   <div class="display-overlay" id="decisionOverlay">
-    <div class="decision-flash" id="decisionFlash"></div>
+    <div class="takeover-lifter-name" id="takeoverLifterName">NAME</div>
+    <div class="decision-flash" id="decisionFlash">GOOD LIFT</div>
+    
+    <div class="takeover-ref-lights">
+      <div class="takeover-ref-group">
+        <div class="ref-light waiting" id="takeoverRef1" style="width:120px;height:120px"></div>
+        <div class="takeover-ref-label">Left</div>
+      </div>
+      <div class="takeover-ref-group">
+        <div class="ref-light waiting" id="takeoverRef2" style="width:120px;height:120px"></div>
+        <div class="takeover-ref-label">Head</div>
+      </div>
+      <div class="takeover-ref-group">
+        <div class="ref-light waiting" id="takeoverRef3" style="width:120px;height:120px"></div>
+        <div class="takeover-ref-label">Right</div>
+      </div>
+    </div>
+
     <div class="decision-countdown" id="decisionCountdown"></div>
   </div>
 
@@ -373,18 +415,32 @@
     function showDecisionFlash(result) {
       const overlay  = document.getElementById('decisionOverlay');
       const flash    = document.getElementById('decisionFlash');
+      const takeoverName = document.getElementById('takeoverLifterName');
       const countdown = document.getElementById('decisionCountdown');
 
       // Clear any existing timers
       if (window.fadeTimeout)      clearTimeout(window.fadeTimeout);
       if (window.countdownInterval) clearInterval(window.countdownInterval);
 
+      // Takeover data synchronization
+      const currentName = document.getElementById('displayLifterName').textContent;
+      takeoverName.textContent = currentName !== 'Waiting...' ? currentName : '';
+      
+      // Sync Lights from main display to takeover positions
+      [1,2,3].forEach(n => {
+        const sourceLight = document.getElementById(`dispRef${n}`);
+        const destLight = document.getElementById(`takeoverRef${n}`);
+        if (sourceLight && destLight) {
+          destLight.className = sourceLight.className;
+        }
+      });
+
       const totalSecs = window.decisionDisplaySeconds || 15;
 
-      // Set text and full-screen background colour
+      // Set colors and content
       flash.textContent = result === 'good' ? 'GOOD LIFT' : 'NO LIFT';
-      flash.className   = `decision-flash ${result === 'good' ? 'decision-good' : 'decision-bad'}`;
-      overlay.className = `display-overlay show ${result === 'good' ? 'decision-good-bg' : 'decision-bad-bg'}`;
+      flash.className   = `decision-flash`;
+      overlay.className = `display-overlay show ${result === 'good' ? 'decision-good decision-good-bg' : 'decision-bad decision-bad-bg'}`;
 
       // Live countdown
       let remaining = totalSecs;
@@ -399,7 +455,7 @@
         }
       }, 1000);
 
-      // Fade out after full duration
+      // Fade out and cleanup
       window.fadeTimeout = setTimeout(() => {
         overlay.classList.remove('show');
         clearInterval(window.countdownInterval);
