@@ -183,6 +183,7 @@
 
     async function init() {
       meet = await API.getMeet(meetId);
+      meetUnits = meet.units === 'lbs' ? 'lb' : 'kg';
       document.getElementById('meetTitle').textContent = meet.name;
       document.title = `${meet.name} — Run — SWAY`;
       
@@ -248,6 +249,14 @@
         });
         socket.on('connected', updateStatusUI);
         socket.on('disconnected', updateStatusUI);
+
+        // Periodically refresh meet units
+        setInterval(async () => {
+          try {
+            const m = await API.getMeet(meetId);
+            meetUnits = (m.units === 'lbs' ? 'lb' : 'kg');
+          } catch (e) {}
+        }, 5000);
       }
       updateStatusUI();
     }
@@ -334,7 +343,7 @@
       if (lifter) {
         const att = lifter.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);
         document.getElementById('currentLifterName').textContent = lifter.name;
-        document.getElementById('currentLifterWeight').textContent = att?.weight ? `${att.weight} kg` : '—';
+        document.getElementById('currentLifterWeight').textContent = att?.weight ? `${att.weight} ${meetUnits}` : '—';
         document.getElementById('currentAttemptInfo').textContent = `${LIFT_NAMES[currentLift]} — Attempt ${currentAttemptNum}`;
         
         // Show rack height for current lift
@@ -399,7 +408,7 @@
       }
       try {
         await API.setAttemptWeight(lifterId, liftType, num, weight);
-        showToast(weight === '' ? 'Wait cleared' : `Weight set: ${weight} kg`);
+        showToast(weight === '' ? 'Wait cleared' : `Weight set: ${weight} ${meetUnits}`);
       } catch (err) { showToast(err.message, 'error'); }
     }
 

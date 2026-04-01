@@ -69,6 +69,7 @@
     let currentAttemptNum = 1;
     let currentAttemptData = null;
     let hasSubmitted = false;
+    let meetUnits = 'kg';
 
     // Try to load ref selection from storage
     if (!selectedRef) {
@@ -116,6 +117,14 @@
     updateStatusUI();
     init(); // Load initial state
 
+    // Periodically refresh meet units
+    setInterval(async () => {
+      try {
+        const m = await API.getMeet(meetId);
+        meetUnits = (m.units === 'lbs' ? 'lb' : 'kg');
+      } catch (e) {}
+    }, 5000);
+
     function updateStatusUI() {
       const dot = document.getElementById('statusDot');
       if (dot) {
@@ -132,7 +141,7 @@
       currentAttemptData = data.attempt;
       
       document.getElementById('refLifterName').textContent = data.lifter?.name || '—';
-      document.getElementById('refWeight').textContent = data.attempt?.weight ? `${data.attempt.weight} kg` : '—';
+      document.getElementById('refWeight').textContent = data.attempt?.weight ? `${data.attempt.weight} ${meetUnits}` : '—';
       document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[data.liftType] || ''} — Attempt ${data.attemptNumber}`;
 
       // Flight + Division + Weight Class context
@@ -186,6 +195,9 @@
 
     async function init() {
       try {
+        const meet = await API.getMeet(meetId);
+        meetUnits = (meet.units === 'lbs' ? 'lb' : 'kg');
+        
         const state = await API.getMeetState(meetId);
         if (state.current_lifter_id) {
           const lifter = await API.getLifter(state.current_lifter_id);
@@ -196,7 +208,7 @@
           currentAttemptData = att || null;
 
           document.getElementById('refLifterName').textContent = lifter.name;
-          document.getElementById('refWeight').textContent = att?.weight ? `${att.weight} kg` : '—';
+          document.getElementById('refWeight').textContent = att?.weight ? `${att.weight} ${meetUnits}` : '—';
           document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[state.current_lift_type] || ''} — Attempt ${state.current_attempt_number}`;
           document.getElementById('refLiftInfo').textContent = lifter.team || '';
 

@@ -343,6 +343,16 @@
 
       // Initial load
       loadState();
+      
+      // Periodically refresh meet config (units, etc.)
+      setInterval(async () => {
+        try {
+          const m = await API.getMeet(meetId);
+          meetUnits = m.units === 'lbs' ? 'lb' : 'kg';
+          window.decisionDisplaySeconds = m.decision_display_seconds || 15;
+          document.getElementById('displayMeetName').textContent = m.name;
+        } catch (e) {}
+      }, 5000);
     }
 
     async function loadState() {
@@ -384,7 +394,7 @@
       document.getElementById('displayAttemptInfo').textContent = parts.join(' · ');
       
       const weight = attempt?.weight || lifter.currentWeight || 0;
-      document.getElementById('displayWeight').innerHTML = weight > 0 ? `${weight} <span>kg</span>` : '—';
+      document.getElementById('displayWeight').innerHTML = weight > 0 ? `${weight} <span>${meetUnits}</span>` : '—';
       document.getElementById('displayLiftInfo').textContent = `${LIFT_NAMES[liftType] || liftType} — Attempt ${attemptNumber}`;
       
       // Plate loader

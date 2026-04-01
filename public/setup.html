@@ -173,6 +173,7 @@
     let meet = null;
     let divisions = [];
     let lifters = [];
+    let meetUnits = 'kg';
 
     createSidebar(meetId, '', 'setup');
 
@@ -187,6 +188,7 @@
         document.getElementById('editShortCode').value = meet.short_code || '';
         document.getElementById('editDecisionSecs').value = meet.decision_display_seconds ?? 15;
         document.title = `${meet.name} Setup — SWAY`;
+        meetUnits = (meet.units === 'lbs' ? 'lb' : 'kg');
         updateJoinUrl();
         
         await loadDivisions();
@@ -217,7 +219,9 @@
           decision_display_seconds: parseInt(document.getElementById('editDecisionSecs').value) || 15
         });
         document.getElementById('meetTitle').textContent = meet.name;
+        meetUnits = (meet.units === 'lbs' ? 'lb' : 'kg');
         updateJoinUrl();
+        renderLifters(); // Refresh unit labels/placeholders
         showToast('Meet info saved');
       } catch (err) {
         showToast('Failed to save: ' + err.message, 'error');
@@ -374,7 +378,7 @@
               <option value="F" ${l.gender === 'F' ? 'selected' : ''}>F</option>
               <option value="X" ${l.gender === 'X' ? 'selected' : ''}>X</option>
             </select>
-            <input type="number" step="0.1" value="${l.body_weight || ''}" placeholder="kg" onchange="updateLifterField('${l.id}', 'body_weight', parseFloat(this.value))">
+            <input type="number" step="0.1" value="${l.body_weight || ''}" placeholder="${meetUnits}" onchange="updateLifterField('${l.id}', 'body_weight', parseFloat(this.value))">
             <select onchange="updateLifterField('${l.id}', 'flight', this.value)">
               ${['A','B','C','D','E'].map(f => `<option ${l.flight === f ? 'selected' : ''}>${f}</option>`).join('')}
             </select>
@@ -408,21 +412,21 @@
                 </select>
               </div>
             </div>
-            <div class="detail-section-label">🏋️ Opening Attempts (kg)</div>
+            <div class="detail-section-label">🏋️ Opening Attempts (${meetUnits})</div>
             <div class="detail-grid">
               <div class="detail-field">
                 <label>Squat Opener</label>
-                <input type="number" step="2.5" value="${sqOpener}" placeholder="kg"
+                <input type="number" step="2.5" value="${sqOpener}" placeholder="${meetUnits}"
                   onchange="saveOpener('${l.id}', 'squat', this.value)">
               </div>
               <div class="detail-field">
                 <label>Bench Opener</label>
-                <input type="number" step="2.5" value="${bpOpener}" placeholder="kg"
+                <input type="number" step="2.5" value="${bpOpener}" placeholder="${meetUnits}"
                   onchange="saveOpener('${l.id}', 'bench', this.value)">
               </div>
               <div class="detail-field">
                 <label>Deadlift Opener</label>
-                <input type="number" step="2.5" value="${dlOpener}" placeholder="kg"
+                <input type="number" step="2.5" value="${dlOpener}" placeholder="${meetUnits}"
                   onchange="saveOpener('${l.id}', 'deadlift', this.value)">
               </div>
             </div>
