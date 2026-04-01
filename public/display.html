@@ -129,8 +129,15 @@
     .decision-bad .decision-flash, .decision-bad .takeover-lifter-name, .decision-bad .takeover-ref-label, .decision-bad .decision-countdown { color: white; }
 
     /* Circle visibility on bright/dark backgrounds */
-    .decision-good-bg .ref-light.white { border: 2px solid rgba(0,0,0,0.1) !important; box-shadow: 0 0 20px rgba(0,0,0,0.05) !important; }
-    .decision-bad-bg .ref-light.red { border: 2px solid rgba(255,255,255,0.2) !important; box-shadow: 0 0 30px rgba(0,0,0,0.2) !important; }
+    .ref-light.white { background: #ffffff !important; border-color: #ffffff !important; }
+    .decision-good-bg .ref-light.white { 
+      border: 3px solid #e0e0e0 !important; 
+      box-shadow: 0 0 15px rgba(0,0,0,0.1) !important; 
+    }
+    .decision-bad-bg .ref-light.red { 
+      border: 3px solid rgba(255,255,255,0.4) !important; 
+      box-shadow: 0 0 30px rgba(0,0,0,0.3) !important; 
+    }
 
     .fullscreen-hint { position: fixed; top: 10px; left: 14px; font-size: 0.65rem; color: var(--text-muted); cursor: pointer; z-index: 50; opacity: 0.35; letter-spacing: 0.5px; }
     .fullscreen-hint:hover { opacity: 0.8; cursor: default; }
@@ -258,9 +265,12 @@
     let isFlashing = false; // Flag to prevent state reloads during decision banners
     let socketListenersRegistered = false; // Guard against duplicate socket listeners
 
+    let meetUnits = 'kg';
+
     async function init() {
       try {
         const meet = await API.getMeet(meetId);
+        meetUnits = meet.units || 'kg';
         document.getElementById('displayMeetName').textContent = meet.name;
         document.title = `${meet.name} — Display — SWAY`;
         // Store the configuration globally so the socket handler can use it
@@ -378,7 +388,7 @@
       document.getElementById('displayLiftInfo').textContent = `${LIFT_NAMES[liftType] || liftType} — Attempt ${attemptNumber}`;
       
       // Plate loader
-      document.getElementById('displayPlateLoader').innerHTML = weight > 0 ? renderPlateLoader(weight) : '';
+      document.getElementById('displayPlateLoader').innerHTML = weight > 0 ? renderPlateLoader(weight, meetUnits) : '';
 
       // ── Rack height badge ──────────────────────────────────────────────────
       const badge = document.getElementById('rackHeightBadge');
@@ -419,9 +429,9 @@
         const inHole = liftingOrder[currentIdx + 2];
         
         document.getElementById('onDeckName').textContent = onDeck?.name || '—';
-        document.getElementById('onDeckWeight').textContent = onDeck?.currentWeight ? `${onDeck.currentWeight} kg` : '';
+        document.getElementById('onDeckWeight').textContent = onDeck?.currentWeight ? `${onDeck.currentWeight} ${meetUnits}` : '';
         document.getElementById('inHoleName').textContent = inHole?.name || '—';
-        document.getElementById('inHoleWeight').textContent = inHole?.currentWeight ? `${inHole.currentWeight} kg` : '';
+        document.getElementById('inHoleWeight').textContent = inHole?.currentWeight ? `${inHole.currentWeight} ${meetUnits}` : '';
         
         // Flight + Division tag (no gender prefix)
         const flightLabel = flight || data.flight || '';

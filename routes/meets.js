@@ -35,7 +35,7 @@ router.post('/', (req, res) => {
   try {
     const db = getDb();
     const id = generateId();
-    const { name, date, federation } = req.body;
+    const { name, date, federation, units } = req.body;
     
     if (!name || name.trim().length === 0) {
       return res.status(400).json({ error: 'Meet name is required' });
@@ -46,9 +46,11 @@ router.post('/', (req, res) => {
     if (federation && federation.length > MAX_FED) {
       return res.status(400).json({ error: `Federation must be ${MAX_FED} characters or fewer` });
     }
+
+    const resolvedUnits = (units || 'kg').toLowerCase() === 'lbs' ? 'lbs' : 'kg';
     
-    db.prepare('INSERT INTO meets (id, name, date, federation) VALUES (?, ?, ?, ?)').run(
-      id, name.trim(), date || new Date().toISOString().split('T')[0], federation || ''
+    db.prepare('INSERT INTO meets (id, name, date, federation, units) VALUES (?, ?, ?, ?, ?)').run(
+      id, name.trim(), date || new Date().toISOString().split('T')[0], federation || '', resolvedUnits
     );
     
     // Create default meet state
@@ -65,7 +67,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const db = getDb();
-    const { name, date, federation, status, plates_config, short_code, decision_display_seconds } = req.body;
+    const { name, date, federation, status, plates_config, short_code, units, decision_display_seconds } = req.body;
     const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
     if (!meet) return res.status(404).json({ error: 'Meet not found' });
 
@@ -111,9 +113,11 @@ router.put('/:id', (req, res) => {
       }
     }
 
+    const resolvedUnits = (units || meet.units || 'kg').toLowerCase() === 'lbs' ? 'lbs' : 'kg';
+
     db.prepare(`
       UPDATE meets SET name = ?, date = ?, federation = ?, status = ?, plates_config = ?,
-        short_code = ?, decision_display_seconds = ? WHERE id = ?
+        short_code = ?, decision_display_seconds = ?, units = ? WHERE id = ?
     `).run(
       name ?? meet.name,
       date ?? meet.date,
@@ -122,6 +126,7 @@ router.put('/:id', (req, res) => {
       platesConfigStr,
       resolvedShortCode,
       resolvedFlashSecs,
+      resolvedUnits,
       req.params.id
     );
 

@@ -37,12 +37,12 @@ function renderPlateLoader(totalWeight, unit = 'kg') {
   if (totalWeight <= 0) return '<div class="plate-loader"><span style="color:var(--text-muted)">No weight set</span></div>';
   
   const plateHtml = plates.map(p => {
-    const cls = `plate-${String(p).replace('.', '_')}`;
+    const cls = `plate-${unit}-${String(p).replace('.', '_')}`;
     return `<div class="plate ${cls}">${p}</div>`;
   }).join('');
   
   const plateHtmlReversed = plates.slice().reverse().map(p => {
-    const cls = `plate-${String(p).replace('.', '_')}`;
+    const cls = `plate-${unit}-${String(p).replace('.', '_')}`;
     return `<div class="plate ${cls}">${p}</div>`;
   }).join('');
   
@@ -65,7 +65,8 @@ function renderPlateLoader(totalWeight, unit = 'kg') {
 function formatWeight(weight, unit = 'kg') {
   if (!weight) return '-';
   const num = parseFloat(weight);
-  return num % 1 === 0 ? num.toString() : num.toFixed(1);
+  const formatted = num % 1 === 0 ? num.toString() : num.toFixed(1);
+  return `${formatted} ${unit}`;
 }
 
 /**

@@ -638,11 +638,30 @@ tr:hover {
   text-orientation: mixed;
 }
 
+/* KG Plates */
+.plate-kg-25 { width: 22px; height: 100px; background: linear-gradient(to right, #e74c3c, #c0392b); }
+.plate-kg-20 { width: 20px; height: 90px; background: linear-gradient(to right, #3498db, #2980b9); }
+.plate-kg-15 { width: 18px; height: 80px; background: linear-gradient(to right, #f1c40f, #f39c12); }
+.plate-kg-10 { width: 16px; height: 70px; background: linear-gradient(to right, #2ecc71, #27ae60); }
+.plate-kg-5 { width: 14px; height: 55px; background: linear-gradient(to right, #e8e8e8, #bbb); color: #333; }
+.plate-kg-2_5 { width: 12px; height: 45px; background: linear-gradient(to right, #333, #222); }
+.plate-kg-1_25 { width: 10px; height: 38px; background: linear-gradient(to right, #888, #666); }
+.plate-kg-0_5 { width: 8px; height: 30px; background: linear-gradient(to right, #aaa, #888); }
+
+/* LB Plates */
+.plate-lbs-45 { width: 22px; height: 100px; background: linear-gradient(to right, #e74c3c, #c0392b); }
+.plate-lbs-35 { width: 20px; height: 90px; background: linear-gradient(to right, #3498db, #2980b9); }
+.plate-lbs-25 { width: 18px; height: 80px; background: linear-gradient(to right, #f1c40f, #f39c12); }
+.plate-lbs-10 { width: 16px; height: 70px; background: linear-gradient(to right, #2ecc71, #27ae60); }
+.plate-lbs-5 { width: 14px; height: 55px; background: linear-gradient(to right, #e8e8e8, #bbb); color: #333; }
+.plate-lbs-2_5 { width: 12px; height: 45px; background: linear-gradient(to right, #333, #222); }
+
+/* Legacy support for old classes */
 .plate-25 { width: 22px; height: 100px; background: linear-gradient(to right, #e74c3c, #c0392b); }
 .plate-20 { width: 20px; height: 90px; background: linear-gradient(to right, #3498db, #2980b9); }
 .plate-15 { width: 18px; height: 80px; background: linear-gradient(to right, #f1c40f, #f39c12); }
 .plate-10 { width: 16px; height: 70px; background: linear-gradient(to right, #2ecc71, #27ae60); }
-.plate-5  { width: 14px; height: 55px; background: linear-gradient(to right, #e8e8e8, #bbb); color: #333; }
+.plate-5 { width: 14px; height: 55px; background: linear-gradient(to right, #e8e8e8, #bbb); color: #333; }
 .plate-2_5 { width: 12px; height: 45px; background: linear-gradient(to right, #333, #222); }
 .plate-1_25 { width: 10px; height: 38px; background: linear-gradient(to right, #888, #666); }
 .plate-0_5 { width: 8px; height: 30px; background: linear-gradient(to right, #aaa, #888); }

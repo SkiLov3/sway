@@ -44,7 +44,7 @@ function initSchema() {
       federation TEXT DEFAULT '',
       status TEXT DEFAULT 'setup',
       plates_config TEXT DEFAULT '{}',
-      short_code TEXT COLLATE NOCASE DEFAULT '',
+      units TEXT COLLATE NOCASE DEFAULT 'kg',
       decision_display_seconds INTEGER DEFAULT 15,
       created_at TEXT DEFAULT (datetime('now'))
     );
@@ -159,6 +159,11 @@ function initSchema() {
       version: 5,
       description: 'Add bench_blocks to lifters',
       sql: "ALTER TABLE lifters ADD COLUMN bench_blocks TEXT DEFAULT 'N'",
+    },
+    {
+      version: 6,
+      description: 'Add units to meets',
+      sql: "ALTER TABLE meets ADD COLUMN units TEXT DEFAULT 'kg'",
     },
     // Add future migrations here: { version: N, description: '...', sql: '...' }
   ];

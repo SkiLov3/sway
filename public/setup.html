@@ -66,6 +66,13 @@
           <label class="form-label">Federation</label>
           <input class="form-input" id="editMeetFederation" placeholder="USAPL, USPA, APF, etc.">
         </div>
+        <div class="form-group">
+          <label class="form-label">Units</label>
+          <select class="form-input" id="editMeetUnits">
+            <option value="kg">Kilograms (kg)</option>
+            <option value="lbs">Pounds (lb)</option>
+          </select>
+        </div>
       </div>
       <div class="form-row" style="margin-top:12px">
         <div class="form-group">
@@ -176,6 +183,7 @@
         document.getElementById('editMeetName').value = meet.name;
         document.getElementById('editMeetDate').value = meet.date;
         document.getElementById('editMeetFederation').value = meet.federation;
+        document.getElementById('editMeetUnits').value = meet.units || 'kg';
         document.getElementById('editShortCode').value = meet.short_code || '';
         document.getElementById('editDecisionSecs').value = meet.decision_display_seconds ?? 15;
         document.title = `${meet.name} Setup — SWAY`;
@@ -204,6 +212,7 @@
           name: document.getElementById('editMeetName').value,
           date: document.getElementById('editMeetDate').value,
           federation: document.getElementById('editMeetFederation').value,
+          units: document.getElementById('editMeetUnits').value,
           short_code: document.getElementById('editShortCode').value,
           decision_display_seconds: parseInt(document.getElementById('editDecisionSecs').value) || 15
         });
