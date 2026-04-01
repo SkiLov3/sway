@@ -15,7 +15,7 @@
     .display-top-center { text-align: center; }
     .display-meet-name { font-family: 'Outfit'; font-weight: 900; font-size: 2.2rem; color: var(--text-primary); letter-spacing: -0.5px; line-height: 1.1; }
     .display-lift-info { color: var(--accent-secondary); font-family: 'Roboto Condensed'; font-size: 0.9rem; font-weight: 700; margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
-    .display-timer-corner { position: absolute; right: 40px; font-family: 'Outfit'; font-weight: 900; font-size: 2.5rem; }
+    .display-timer-corner { position: absolute; right: 40px; font-family: 'Outfit'; font-weight: 900; font-size: 3.2rem; }
 
     /* ── Main body: centered column layout ── */
     .display-body { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 40px; gap: 8px; min-height: 0; }
@@ -122,21 +122,21 @@
     }
 
     /* Background Specific Coloring */
-    .decision-good-bg  { background: #ffffff; }
-    .decision-bad-bg   { background: #c0392b; }
+    .display-overlay.decision-good-bg { background-color: #ffffff !important; }
+    .display-overlay.decision-bad-bg  { background-color: #c0392b !important; }
     
-    .decision-good .decision-flash, .decision-good .takeover-lifter-name, .decision-good .takeover-ref-label, .decision-good .decision-countdown { color: #0a0a1a; }
-    .decision-bad .decision-flash, .decision-bad .takeover-lifter-name, .decision-bad .takeover-ref-label, .decision-bad .decision-countdown { color: white; }
+    .decision-good .decision-flash, .decision-good .takeover-lifter-name, .decision-good .takeover-ref-label, .decision-good .decision-countdown { color: #000000 !important; }
+    .decision-bad .decision-flash, .decision-bad .takeover-lifter-name, .decision-bad .takeover-ref-label, .decision-bad .decision-countdown { color: #ffffff !important; }
 
     /* Circle visibility on bright/dark backgrounds */
-    .ref-light.white { background: #ffffff !important; border-color: #ffffff !important; }
+    .ref-light.white { background-color: #ffffff !important; border-color: #ffffff !important; box-shadow: none !important; }
     .decision-good-bg .ref-light.white { 
-      border: 3px solid #e0e0e0 !important; 
-      box-shadow: 0 0 15px rgba(0,0,0,0.1) !important; 
+      border: 5px solid #000000 !important; 
+      box-shadow: 0 0 20px rgba(0,0,0,0.15) !important; 
     }
     .decision-bad-bg .ref-light.red { 
-      border: 3px solid rgba(255,255,255,0.4) !important; 
-      box-shadow: 0 0 30px rgba(0,0,0,0.3) !important; 
+      border: 5px solid #ffffff !important; 
+      box-shadow: 0 0 30px rgba(0,0,0,0.4) !important; 
     }
 
     .fullscreen-hint { position: fixed; top: 10px; left: 14px; font-size: 0.65rem; color: var(--text-muted); cursor: pointer; z-index: 50; opacity: 0.35; letter-spacing: 0.5px; }
