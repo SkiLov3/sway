@@ -348,6 +348,9 @@ router.get('/:id/results', (req, res) => {
     ORDER BY d.sort_order, d.name, wc.sort_order, wc.name, l.name
   `).all(req.params.id);
 
+  const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
+  if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
   const attempts = db.prepare(`
     SELECT a.* FROM attempts a
     JOIN lifters l ON a.lifter_id = l.id
@@ -383,7 +386,7 @@ router.get('/:id/results', (req, res) => {
     const total = (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) 
       ? bestSquat + bestBench + bestDeadlift : 0;
       
-    const dots = calculateDOTS(total, lifter.body_weight, lifter.gender, resultsMeet.units || 'kg');
+    const dots = calculateDOTS(total, lifter.body_weight, lifter.gender, meet.units || 'kg');
 
     return {
       ...lifter,
@@ -419,9 +422,10 @@ router.get('/:id/results', (req, res) => {
   });
 
   // Calculate Best Lifters across the entire meet (sorted by DOTS)
-  const bestLifters = results.filter(r => r.total > 0).sort((a, b) => b.dots - a.dots);
+  const bestMale = results.filter(r => r.total > 0 && r.gender !== 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+  const bestFemale = results.filter(r => r.total > 0 && r.gender === 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
 
-  res.json({ results, groups, bestLifters });
+  res.json({ results, groups, bestMale, bestFemale });
 });
 
 module.exports = router;

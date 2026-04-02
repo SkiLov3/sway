@@ -97,4 +97,35 @@ describe('Meets API', () => {
     const check = db.prepare('SELECT * FROM meets WHERE id = ?').get(id);
     expect(check).toBeUndefined();
   });
+
+  test('GET /api/meets/:id/results should return calculated results', async () => {
+    // Create meet
+    const mRes = await request(app).post('/api/meets').send({ name: 'Results Test', units: 'kg' });
+    const mid = mRes.body.id;
+
+    // Create lifter
+    const lRes = await request(app).post('/api/lifters').send({
+      meet_id: mid,
+      name: 'Test Lifter',
+      gender: 'M',
+      body_weight: 100
+    });
+    const lid = lRes.body.id;
+
+    // Add successful lifts (S: 200, B: 150, D: 250 = 600 Total)
+    await request(app).put(`/api/attempts/set/${lid}/squat/1`).send({ weight: 200 });
+    await request(app).put(`/api/attempts/decision/${lid}/squat/1`).send({ ref1: 'white', ref2: 'white', ref3: 'white' });
+    await request(app).put(`/api/attempts/set/${lid}/bench/1`).send({ weight: 150 });
+    await request(app).put(`/api/attempts/decision/${lid}/bench/1`).send({ ref1: 'white', ref2: 'white', ref3: 'white' });
+    await request(app).put(`/api/attempts/set/${lid}/deadlift/1`).send({ weight: 250 });
+    await request(app).put(`/api/attempts/decision/${lid}/deadlift/1`).send({ ref1: 'white', ref2: 'white', ref3: 'white' });
+
+    const res = await request(app).get(`/api/meets/${mid}/results`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.results).toBeDefined();
+    expect(res.body.results[0].total).toBe(600);
+    expect(res.body.results[0].dots).toBeGreaterThan(0);
+    expect(res.body.bestMale).toBeDefined();
+    expect(res.body.bestFemale).toBeDefined();
+  });
 });

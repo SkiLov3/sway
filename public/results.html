@@ -144,20 +144,42 @@
       const body = document.getElementById('resultsBody');
       let html = '';
 
-      // Add Best Lifters section if any totals exist
-      if (resultsData.bestLifters && resultsData.bestLifters.length > 0) {
+      // Add Best Male Lifters section
+      if (resultsData.bestMale && resultsData.bestMale.length > 0) {
         html += `
           <tr class="division-header group-header" style="background:var(--accent-glow)">
             <td colspan="15" style="border-bottom-color:var(--accent-primary)">
-              <strong>🏆 Best Lifters (Top 10 by DOTS)</strong>
+              <strong>🏆 Best Male Lifters (Top 10 by DOTS)</strong>
             </td>
           </tr>
         `;
-        resultsData.bestLifters.slice(0, 10).forEach((lifter, idx) => {
+        resultsData.bestMale.forEach((lifter, idx) => {
           html += `<tr>`;
           html += `<td><strong>${idx + 1}. ${escapeHtml(lifter.name)}</strong></td>`;
           html += `<td style="color:var(--text-secondary)">${escapeHtml(lifter.team || '')}</td>`;
-          html += `<td>—</td>`; // Place in weight class
+          html += `<td>—</td>`;
+          html += `<td>${lifter.body_weight || '—'}</td>`;
+          html += `<td colspan="10" style="color:var(--text-secondary)">${escapeHtml(lifter.division_name)} / ${escapeHtml(lifter.weight_class_name)}</td>`;
+          html += `<td style="font-weight:700;color:var(--accent-secondary)">${lifter.dots}</td>`;
+          html += `</tr>`;
+        });
+        html += `<tr><td colspan="15" style="padding:16px;border:none"></td></tr>`;
+      }
+
+      // Add Best Female Lifters section
+      if (resultsData.bestFemale && resultsData.bestFemale.length > 0) {
+        html += `
+          <tr class="division-header group-header" style="background:var(--accent-glow)">
+            <td colspan="15" style="border-bottom-color:var(--accent-primary)">
+              <strong>🏆 Best Female Lifters (Top 10 by DOTS)</strong>
+            </td>
+          </tr>
+        `;
+        resultsData.bestFemale.forEach((lifter, idx) => {
+          html += `<tr>`;
+          html += `<td><strong>${idx + 1}. ${escapeHtml(lifter.name)}</strong></td>`;
+          html += `<td style="color:var(--text-secondary)">${escapeHtml(lifter.team || '')}</td>`;
+          html += `<td>—</td>`;
           html += `<td>${lifter.body_weight || '—'}</td>`;
           html += `<td colspan="10" style="color:var(--text-secondary)">${escapeHtml(lifter.division_name)} / ${escapeHtml(lifter.weight_class_name)}</td>`;
           html += `<td style="font-weight:700;color:var(--accent-secondary)">${lifter.dots}</td>`;

@@ -36,9 +36,6 @@ function calculateDOTS(total, bw, gender, unit = 'kg') {
     // Men's Constants
     a = -0.000001093;
     b = 0.0007391293;
-    c = -0.1126655495; // Wait... looking at men's coefficient source... 
-    // Re-verifying coefficient 'c' for men: 
-    // USPA / WRPF DOTS spreadsheet: c = -0.1918759221
     c = -0.1918759221;
     d = 24.0900756;
     e = -307.75076;

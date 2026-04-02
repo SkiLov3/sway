@@ -63,7 +63,7 @@ const API = {
   updateMeetState: (meetId, data) => api(`/meets/${meetId}/state`, { method: 'PUT', body: data }),
   
   // Results
-  getResults: (meetId) => api(`/meets/${meetId}/results`),
+  getResults: (meetId, forecasted) => api(`/meets/${meetId}/results${forecasted ? '?forecasted=true' : ''}`),
   
   // Network
   getNetworkInfo: () => api('/network'),
