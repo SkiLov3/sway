@@ -2,13 +2,12 @@
 
 Sway is a minimal, local-first web application designed to help you run powerlifting meets straight from your laptop. It connects devices over your local network to provide real-time scoreboards, referee light systems, and TV display views.
 
-````carousel
-![Setup View - Lifter Management & Rack Heights](docs/img/setup_view.png)
-<!-- slide -->
-![TV Display View - Animated Plate Loader & Timer](docs/img/display_view.png)
-<!-- slide -->
-![Live Run Board - Operator Dashboard & Scoring](docs/img/run_view.png)
-````
+
+| **Setup View** | **TV Display Board** | **Live Run Board** |
+|:---:|:---:|:---:|
+| ![Setup View](docs/img/setup_view.png) | ![TV Display View](docs/img/display_view.png) | ![Live Run Board](docs/img/run_view.png) |
+| *Lifter Management & Rack Heights* | *Animated Plate Loader & Timer* | *Operator Dashboard & Scoring* |
+
 
 ## Features
 
