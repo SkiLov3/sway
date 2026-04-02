@@ -13,10 +13,11 @@ Sway is a minimal, local-first web application designed to help you run powerlif
 
 - **Local Network Sync**: Run the server on your laptop and access referee, display, and scoring views from phones, tablets, or TVs connected to the same Wi-Fi. No internet required.
 - **TV Display Mode**: HDMI-optimized full-screen view with a real-time plate loader visualization, current lifter info, and large referee lights.
+- **Dynamic Units (KG/LB)**: Full support for both metric and imperial meets. Toggling units automatically updates all displays, plate loaders, and results in real-time.
 - **Referee System**: Mobile-friendly referee pages for the Left, Head, and Right judges to cast white/red lights. The system auto-calculates the final result based on majority vote.
 - **Meet Configuration**: Built-in division presets for USAPL, USPA, and IPF. Add custom divisions, weight classes, and easily import lifters via CSV.
 - **Live Scoring Board**: Operator dashboard showing lifting order, flight tracking, and a 60-second competition timer.
-- **Automated Results**: Real-time results page showing placing, totals, and color-coded attempt tables, exportable to CSV.
+- **Automated Results & DOTS**: Real-time results page showing placing, totals, and color-coded attempt tables. 100% accurate DOTS points calculation for relative strength, with full unit-support.
 - **Rock Solid Integrity**: Integrated server-side broadcasting for real-time sync, input validation for body weights and attempt weights, and automated majority-vote calculation.
 
 ## Getting Started

@@ -130,6 +130,12 @@ router.put('/:id', (req, res) => {
       req.params.id
     );
 
+    // Broadcast meet update
+    const broadcast = req.app.get('broadcast');
+    if (broadcast) {
+      broadcast({ type: 'meet_updated', data: { meetId: req.params.id } });
+    }
+
     res.json(db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -377,7 +383,7 @@ router.get('/:id/results', (req, res) => {
     const total = (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) 
       ? bestSquat + bestBench + bestDeadlift : 0;
       
-    const dots = calculateDOTS(total, lifter.body_weight, lifter.gender);
+    const dots = calculateDOTS(total, lifter.body_weight, lifter.gender, resultsMeet.units || 'kg');
 
     return {
       ...lifter,
