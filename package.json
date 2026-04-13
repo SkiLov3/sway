@@ -1,6 +1,6 @@
 {
   "name": "sway",
-  "version": "2.4.0",
+  "version": "2.4.2",
   "description": "Local powerlifting meet management app",
   "license": "AGPL-3.0-only",
   "main": "server.js",

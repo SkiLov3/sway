@@ -335,97 +335,102 @@ router.put('/:id/state', (req, res) => {
 // --- Results ---
 
 router.get('/:id/results', (req, res) => {
-  const db = getDb();
-  
-  const isForecasted = req.query.forecasted === 'true';
-  
-  const lifters = db.prepare(`
-    SELECT l.*, d.name as division_name, wc.name as weight_class_name
-    FROM lifters l
-    LEFT JOIN divisions d ON l.division_id = d.id
-    LEFT JOIN weight_classes wc ON l.weight_class_id = wc.id
-    WHERE l.meet_id = ?
-    ORDER BY d.sort_order, d.name, wc.sort_order, wc.name, l.name
-  `).all(req.params.id);
-
-  const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
-  if (!meet) return res.status(404).json({ error: 'Meet not found' });
-
-  const attempts = db.prepare(`
-    SELECT a.* FROM attempts a
-    JOIN lifters l ON a.lifter_id = l.id
-    WHERE l.meet_id = ?
-  `).all(req.params.id);
-
-  // Group attempts by lifter
-  const attemptsByLifter = {};
-  attempts.forEach(a => {
-    if (!attemptsByLifter[a.lifter_id]) attemptsByLifter[a.lifter_id] = [];
-    attemptsByLifter[a.lifter_id].push(a);
-  });
-
-  // Calculate totals and best lifts
-  const results = lifters.map(lifter => {
-    const la = attemptsByLifter[lifter.id] || [];
-    const getBest = (type) => {
-      const candidates = la.filter(a => {
-        if (a.lift_type !== type) return false;
-        if (a.result === 'good') return true;
-        // In forecasted mode, treat 'pending' as good (Best Case Scenario)
-        if (isForecasted && a.result === 'pending' && a.weight > 0) return true;
-        return false;
-      });
-      return candidates.length > 0 ? Math.max(...candidates.map(a => a.weight)) : 0;
-    };
+  try {
+    const db = getDb();
     
-    const bestSquat = getBest('squat');
-    const bestBench = getBest('bench');
-    const bestDeadlift = getBest('deadlift');
+    const isForecasted = req.query.forecasted === 'true';
     
-    // Total is only valid if we have at least one successful (or forecasted) lift in each category
-    const total = (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) 
-      ? bestSquat + bestBench + bestDeadlift : 0;
+    const lifters = db.prepare(`
+      SELECT l.*, d.name as division_name, wc.name as weight_class_name
+      FROM lifters l
+      LEFT JOIN divisions d ON l.division_id = d.id
+      LEFT JOIN weight_classes wc ON l.weight_class_id = wc.id
+      WHERE l.meet_id = ?
+      ORDER BY d.sort_order, d.name, wc.sort_order, wc.name, l.name
+    `).all(req.params.id);
+
+    const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
+    if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
+    const attempts = db.prepare(`
+      SELECT a.* FROM attempts a
+      JOIN lifters l ON a.lifter_id = l.id
+      WHERE l.meet_id = ?
+    `).all(req.params.id);
+
+    // Group attempts by lifter
+    const attemptsByLifter = {};
+    attempts.forEach(a => {
+      if (!attemptsByLifter[a.lifter_id]) attemptsByLifter[a.lifter_id] = [];
+      attemptsByLifter[a.lifter_id].push(a);
+    });
+
+    // Calculate totals and best lifts
+    const results = lifters.map(lifter => {
+      const la = attemptsByLifter[lifter.id] || [];
+      const getBest = (type) => {
+        const candidates = la.filter(a => {
+          if (a.lift_type !== type) return false;
+          if (a.result === 'good') return true;
+          // In forecasted mode, treat 'pending' as good (Best Case Scenario)
+          if (isForecasted && a.result === 'pending' && a.weight > 0) return true;
+          return false;
+        });
+        return candidates.length > 0 ? Math.max(...candidates.map(a => a.weight)) : 0;
+      };
       
-    const dots = calculateDOTS(total, lifter.body_weight, lifter.gender, meet.units || 'kg');
+      const bestSquat = getBest('squat');
+      const bestBench = getBest('bench');
+      const bestDeadlift = getBest('deadlift');
+      
+      // Total is only valid if we have at least one successful (or forecasted) lift in each category
+      const total = (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) 
+        ? bestSquat + bestBench + bestDeadlift : 0;
+        
+      const dots = calculateDOTS(total, lifter.body_weight, lifter.gender, meet.units || 'kg');
 
-    return {
-      ...lifter,
-      attempts: la,
-      bestSquat,
-      bestBench,
-      bestDeadlift,
-      total,
-      dots,
-      isForecasted
-    };
-  });
-
-  // Group by division + weight class and compute placings
-  const groups = {};
-  results.forEach(r => {
-    const key = `${r.division_name || 'Unassigned'}|||${r.weight_class_name || 'Unassigned'}`;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(r);
-  });
-
-  // Sort by total desc within each group, assign places
-  Object.values(groups).forEach(group => {
-    group.sort((a, b) => {
-      // Primary: Total desc
-      if (b.total !== a.total) return b.total - a.total;
-      // Secondary: Lighter body weight wins
-      return (a.body_weight || 9999) - (b.body_weight || 9999);
+      return {
+        ...lifter,
+        attempts: la,
+        bestSquat,
+        bestBench,
+        bestDeadlift,
+        total,
+        dots,
+        isForecasted
+      };
     });
-    group.forEach((lifter, idx) => {
-      lifter.place = lifter.total > 0 ? idx + 1 : '-';
+
+    // Group by division + weight class and compute placings
+    const groups = {};
+    results.forEach(r => {
+      const key = `${r.division_name || 'Unassigned'}|||${r.weight_class_name || 'Unassigned'}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
     });
-  });
 
-  // Calculate Best Lifters across the entire meet (sorted by DOTS)
-  const bestMale = results.filter(r => r.total > 0 && r.gender !== 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
-  const bestFemale = results.filter(r => r.total > 0 && r.gender === 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+    // Sort by total desc within each group, assign places
+    Object.values(groups).forEach(group => {
+      group.sort((a, b) => {
+        // Primary: Total desc
+        if (b.total !== a.total) return b.total - a.total;
+        // Secondary: Lighter body weight wins
+        return (a.body_weight || 9999) - (b.body_weight || 9999);
+      });
+      group.forEach((lifter, idx) => {
+        lifter.place = lifter.total > 0 ? idx + 1 : '-';
+      });
+    });
 
-  res.json({ results, groups, bestMale, bestFemale });
+    // Calculate Best Lifters across the entire meet (sorted by DOTS)
+    const bestMale = results.filter(r => r.total > 0 && r.gender !== 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+    const bestFemale = results.filter(r => r.total > 0 && r.gender === 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+
+    res.json({ results, groups, bestMale, bestFemale });
+  } catch (err) {
+    console.error('[API] Error generating results:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

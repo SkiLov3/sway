@@ -26,7 +26,7 @@
     </div>
     <div class="header-actions">
       <button class="btn btn-outline btn-sm" id="forecastedBtn" onclick="toggleForecasted()">Forecasted</button>
-      <button class="btn btn-outline btn-sm" onclick="exportResults()">📋 Export</button>
+      <button class="btn btn-primary btn-sm" onclick="exportResults()">📋 Export Results</button>
     </div>
   </header>
 
@@ -278,10 +278,18 @@
       showToast(isForecasted ? 'Showing projected standings (Best Case)' : 'Showing actual standings');
     }
 
-    function exportResults() {
+    async function exportResults() {
       if (!resultsData) return;
       
-      let csv = 'Division,Weight Class,Place,Name,Team,Gender,Body Weight,Squat 1,Squat 2,Squat 3,Bench 1,Bench 2,Bench 3,Deadlift 1,Deadlift 2,Deadlift 3,Total,DOTS\n';
+      const meet = await API.getMeet(meetId);
+      const now = new Date().toLocaleString();
+      
+      let csv = `MEET: ${meet.name}\n`;
+      csv += `DATE: ${meet.date || '-'}\n`;
+      csv += `FEDERATION: ${meet.federation || '-'}\n`;
+      csv += `EXPORTED: ${now}\n\n`;
+      
+      csv += 'Division,Weight Class,Place,Name,Team,Gender,Body Weight,Squat 1,Squat 2,Squat 3,Bench 1,Bench 2,Bench 3,Deadlift 1,Deadlift 2,Deadlift 3,Total,DOTS\n';
       
       for (const [key, lifters] of Object.entries(resultsData.groups)) {
         const [divName, wcName] = key.split('|||');
@@ -301,12 +309,31 @@
         });
       }
 
+      // Add Best Lifters summary
+      if ((resultsData.bestMale && resultsData.bestMale.length > 0) || (resultsData.bestFemale && resultsData.bestFemale.length > 0)) {
+        csv += '\n\nBEST LIFTER SUMMARY (Top 10 by DOTS)\n';
+        
+        if (resultsData.bestMale && resultsData.bestMale.length > 0) {
+          csv += '\nBEST MALE LIFTERS\nRank,Name,Team,Division,Weight Class,DOTS\n';
+          resultsData.bestMale.forEach((l, i) => {
+            csv += `${i+1},${escapeCSV(l.name)},${escapeCSV(l.team || '')},${escapeCSV(l.division_name)},${escapeCSV(l.weight_class_name)},${l.dots}\n`;
+          });
+        }
+        
+        if (resultsData.bestFemale && resultsData.bestFemale.length > 0) {
+          csv += '\nBEST FEMALE LIFTERS\nRank,Name,Team,Division,Weight Class,DOTS\n';
+          resultsData.bestFemale.forEach((l, i) => {
+            csv += `${i+1},${escapeCSV(l.name)},${escapeCSV(l.team || '')},${escapeCSV(l.division_name)},${escapeCSV(l.weight_class_name)},${l.dots}\n`;
+          });
+        }
+      }
+
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `results_${meetId.slice(0,8)}.csv`;
+      a.download = `Results_${meet.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
-      showToast('Results exported to CSV');
+      showToast('Cleaner Results Exported to CSV');
     }
 
     init();
