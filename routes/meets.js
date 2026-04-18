@@ -428,8 +428,8 @@ router.get('/:id/results', (req, res) => {
     });
 
     // Calculate Best Lifters across the entire meet (sorted by DOTS)
-    const bestMale = results.filter(r => r.total > 0 && r.gender !== 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
-    const bestFemale = results.filter(r => r.total > 0 && r.gender === 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+    const bestMale = results.filter(r => r.dots > 0 && r.gender !== 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+    const bestFemale = results.filter(r => r.dots > 0 && r.gender === 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
 
     res.json({ results, groups, bestMale, bestFemale });
   } catch (err) {

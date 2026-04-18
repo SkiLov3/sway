@@ -48,7 +48,7 @@ function calculateDOTS(total, bw, gender, unit = 'kg') {
   const dotsAmount = 500 / denominator;
   const points = calcTotal * dotsAmount;
   
-  return parseFloat(points.toFixed(2));
+  return parseFloat(points.toFixed(4));
 }
 
 module.exports = {

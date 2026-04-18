@@ -154,12 +154,33 @@
           </tr>
         `;
         resultsData.bestMale.forEach((lifter, idx) => {
+          const attempts = lifter.attempts || [];
           html += `<tr>`;
-          html += `<td><strong>${idx + 1}. ${escapeHtml(lifter.name)}</strong></td>`;
+          html += `<td style="line-height:1.3"><strong>${idx + 1}. ${escapeHtml(lifter.name)}</strong><br><small style="color:var(--text-secondary);font-weight:400">${escapeHtml(lifter.division_name)} / ${escapeHtml(lifter.weight_class_name)}</small></td>`;
           html += `<td style="color:var(--text-secondary)">${escapeHtml(lifter.team || '')}</td>`;
           html += `<td>—</td>`;
           html += `<td>${lifter.body_weight || '—'}</td>`;
-          html += `<td colspan="10" style="color:var(--text-secondary)">${escapeHtml(lifter.division_name)} / ${escapeHtml(lifter.weight_class_name)}</td>`;
+          
+          for (let num = 1; num <= 3; num++) {
+            const att = attempts.find(a => a.lift_type === 'squat' && a.attempt_number === num);
+            html += renderAttemptCell(att, lifter, 'squat');
+          }
+          for (let num = 1; num <= 3; num++) {
+            const att = attempts.find(a => a.lift_type === 'bench' && a.attempt_number === num);
+            html += renderAttemptCell(att, lifter, 'bench');
+          }
+          for (let num = 1; num <= 3; num++) {
+            const att = attempts.find(a => a.lift_type === 'deadlift' && a.attempt_number === num);
+            html += renderAttemptCell(att, lifter, 'deadlift');
+          }
+          
+          const isProj = lifter.isForecasted && attempts.some(a => a.result === 'pending' && a.weight > 0);
+          html += `
+            <td class="total-cell">
+              ${lifter.total > 0 ? `${lifter.total} <small style="color:var(--text-muted);font-weight:400">${meetUnits}</small>` : '—'}
+              ${isProj ? '<div class="forecasted-badge">Projected</div>' : ''}
+            </td>
+          `;
           html += `<td style="font-weight:700;color:var(--accent-secondary)">${lifter.dots}</td>`;
           html += `</tr>`;
         });
@@ -176,12 +197,33 @@
           </tr>
         `;
         resultsData.bestFemale.forEach((lifter, idx) => {
+          const attempts = lifter.attempts || [];
           html += `<tr>`;
-          html += `<td><strong>${idx + 1}. ${escapeHtml(lifter.name)}</strong></td>`;
+          html += `<td style="line-height:1.3"><strong>${idx + 1}. ${escapeHtml(lifter.name)}</strong><br><small style="color:var(--text-secondary);font-weight:400">${escapeHtml(lifter.division_name)} / ${escapeHtml(lifter.weight_class_name)}</small></td>`;
           html += `<td style="color:var(--text-secondary)">${escapeHtml(lifter.team || '')}</td>`;
           html += `<td>—</td>`;
           html += `<td>${lifter.body_weight || '—'}</td>`;
-          html += `<td colspan="10" style="color:var(--text-secondary)">${escapeHtml(lifter.division_name)} / ${escapeHtml(lifter.weight_class_name)}</td>`;
+
+          for (let num = 1; num <= 3; num++) {
+            const att = attempts.find(a => a.lift_type === 'squat' && a.attempt_number === num);
+            html += renderAttemptCell(att, lifter, 'squat');
+          }
+          for (let num = 1; num <= 3; num++) {
+            const att = attempts.find(a => a.lift_type === 'bench' && a.attempt_number === num);
+            html += renderAttemptCell(att, lifter, 'bench');
+          }
+          for (let num = 1; num <= 3; num++) {
+            const att = attempts.find(a => a.lift_type === 'deadlift' && a.attempt_number === num);
+            html += renderAttemptCell(att, lifter, 'deadlift');
+          }
+          
+          const isProj = lifter.isForecasted && attempts.some(a => a.result === 'pending' && a.weight > 0);
+          html += `
+            <td class="total-cell">
+              ${lifter.total > 0 ? `${lifter.total} <small style="color:var(--text-muted);font-weight:400">${meetUnits}</small>` : '—'}
+              ${isProj ? '<div class="forecasted-badge">Projected</div>' : ''}
+            </td>
+          `;
           html += `<td style="font-weight:700;color:var(--accent-secondary)">${lifter.dots}</td>`;
           html += `</tr>`;
         });
