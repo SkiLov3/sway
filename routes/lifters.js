@@ -175,14 +175,23 @@ router.patch('/bulk', (req, res) => {
       return res.status(400).json({ error: 'Array of lifter ids is required' });
     }
 
+    // Validation for flight
+    if (flight !== undefined && (typeof flight !== 'string' || flight.length > 5)) {
+      return res.status(400).json({ error: 'Invalid flight designation' });
+    }
+
     const updateTx = db.transaction(() => {
       if (flight !== undefined) {
-        const placeholders = ids.map(() => '?').join(',');
-        db.prepare(`UPDATE lifters SET flight = ? WHERE id IN (${placeholders})`).run(flight, ...ids);
+        const stmt = db.prepare('UPDATE lifters SET flight = ? WHERE id = ?');
+        for (const id of ids) {
+          stmt.run(flight, id);
+        }
       }
       if (division_id !== undefined) {
-        const placeholders = ids.map(() => '?').join(',');
-        db.prepare(`UPDATE lifters SET division_id = ? WHERE id IN (${placeholders})`).run(division_id, ...ids);
+        const stmt = db.prepare('UPDATE lifters SET division_id = ? WHERE id = ?');
+        for (const id of ids) {
+          stmt.run(division_id || null, id);
+        }
       }
     });
 
@@ -199,20 +208,18 @@ router.delete('/bulk', (req, res) => {
     const db = getDb();
     const { meetId, ids } = req.body;
     
-    console.log(`[API] Bulk delete request. meetId: ${meetId}, ids: ${ids?.length || 0}`);
-
     if (!meetId && (!ids || !Array.isArray(ids) || ids.length === 0)) {
       return res.status(400).json({ error: 'Either meetId or list of ids is required' });
     }
 
     const deleteTx = db.transaction((mId, lifterIds) => {
       if (mId) {
-        const result = db.prepare('DELETE FROM lifters WHERE meet_id = ?').run(mId);
-        console.log(`[API] Deleted ${result.changes} lifters for meet ${mId}`);
+        db.prepare('DELETE FROM lifters WHERE meet_id = ?').run(mId);
       } else if (lifterIds && lifterIds.length > 0) {
-        const placeholders = lifterIds.map(() => '?').join(',');
-        const result = db.prepare(`DELETE FROM lifters WHERE id IN (${placeholders})`).run(...lifterIds);
-        console.log(`[API] Deleted ${result.changes} specific lifters`);
+        const stmt = db.prepare('DELETE FROM lifters WHERE id = ?');
+        for (const id of lifterIds) {
+          stmt.run(id);
+        }
       }
     });
 
@@ -258,6 +265,11 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
       relaxColumnCount: true
     });
 
+    if (records.length > 500) {
+      try { if (req.file) fs.unlinkSync(req.file.path); } catch (_) {}
+      return res.status(400).json({ error: 'CSV exceeds limit of 500 lifters. Please split your file.' });
+    }
+
     const insertLifter = db.prepare(`
       INSERT INTO lifters (
         id, meet_id, name, team, division_id, weight_class_id, gender, body_weight, 
@@ -268,17 +280,17 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
     `);
     const insertAttempt = db.prepare('INSERT INTO attempts (id, lifter_id, lift_type, attempt_number) VALUES (?, ?, ?, ?)');
 
-    // Get existing divisions and weight classes for matching
-    const divisions = db.prepare('SELECT * FROM divisions WHERE meet_id = ?').all(meetId);
-    const weightClasses = db.prepare(`
-      SELECT wc.* FROM weight_classes wc 
-      JOIN divisions d ON wc.division_id = d.id 
-      WHERE d.meet_id = ?
-    `).all(meetId);
-
     const importTransaction = db.transaction((records) => {
       let imported = 0;
       const errors = [];
+
+      // Refresh cache of divisions/weight classes inside transaction
+      let divisions = db.prepare('SELECT * FROM divisions WHERE meet_id = ?').all(meetId);
+      let weightClasses = db.prepare(`
+        SELECT wc.* FROM weight_classes wc 
+        JOIN divisions d ON wc.division_id = d.id 
+        WHERE d.meet_id = ?
+      `).all(meetId);
 
       records.forEach((record, idx) => {
         try {
@@ -289,17 +301,20 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
           }
 
           const team = record.Team || record.team || '';
-          const bodyWeight = parseFloat(record['Body Weight'] || record.body_weight || record.BodyWeight || record.Weight || 0) || null;
-          const lot = parseInt(record.Lot || record.lot || record['Lot Number'] || 0) || null;
-          const flight = record.Flight || record.flight || 'A';
+          const rawBw = record['Body Weight'] || record.body_weight || record.BodyWeight || record.Weight || '0';
+          const bodyWeight = parseFloat(String(rawBw).replace(/[^\d.]/g, '')) || null;
+          
+          const rawLot = record.Lot || record.lot || record['Lot Number'] || '0';
+          const lot = parseInt(String(rawLot).replace(/\D/g, '')) || null;
+          
+          const flight = String(record.Flight || record.flight || 'A').trim().toUpperCase().substring(0, 5) || 'A';
           const platform = parseInt(record.Platform || record.platform || 1) || 1;
           
           let parsedGender = (record.Gender || record.gender || record.Sex || record.sex || 'M').trim().toUpperCase().charAt(0);
           if (!['M', 'F', 'X'].includes(parsedGender)) parsedGender = 'M';
           
           // Try to match or auto-create division
-          let divName = record.Division || record.division || '';
-          divName = divName.trim();
+          let divName = (record.Division || record.division || '').trim();
           let matchedDiv = divName ? divisions.find(d => d.name.toLowerCase() === divName.toLowerCase()) : null;
           
           if (divName && !matchedDiv) {
@@ -311,8 +326,7 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
           }
           
           // Try to match or auto-create weight class
-          let wcName = record['Weight Class'] || record.weight_class || record.WeightClass || '';
-          wcName = wcName.trim();
+          let wcName = (record['Weight Class'] || record.weight_class || record.WeightClass || '').trim();
           let matchedWc = wcName ? weightClasses.find(wc => 
             wc.name.toLowerCase() === wcName.toLowerCase() && 
             (!matchedDiv || wc.division_id === matchedDiv.id)
@@ -334,18 +348,19 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
               matchedWc.id, matchedWc.division_id, matchedWc.name, matchedWc.max_weight, matchedWc.sort_order
             );
             weightClasses.push(matchedWc);
+            weightClasses.push(matchedWc); // Keep local cache updated
           }
 
-          const squatRack = record['Squat Rack'] || record.squat_rack || record.squat_rack_height || '';
-          const benchRack = record['Bench Rack'] || record.bench_rack || record.bench_rack_height || '';
-          const rackHeight = record['Rack Height'] || record.rack_height || record.Rack || '';
-          const benchSafety = record['Bench Safety'] || record.bench_safety || record.bench_safety_height || '4';
-          let benchBlocks = (record['Bench Blocks'] || record.bench_blocks || 'N').trim().toUpperCase();
+          const squatRack = String(record['Squat Rack'] || record.squat_rack || record.squat_rack_height || '').substring(0, 20);
+          const benchRack = String(record['Bench Rack'] || record.bench_rack || record.bench_rack_height || '').substring(0, 20);
+          const rackHeight = String(record['Rack Height'] || record.rack_height || record.Rack || '').substring(0, 20);
+          const benchSafety = String(record['Bench Safety'] || record.bench_safety || record.bench_safety_height || '4').substring(0, 20);
+          let benchBlocks = (record['Bench Blocks'] || record.bench_blocks || 'N').trim().toUpperCase().charAt(0);
           if (!['Y', 'N'].includes(benchBlocks)) benchBlocks = 'N';
 
           const lifterId = generateId();
           insertLifter.run(
-            lifterId, meetId, name, team,
+            lifterId, meetId, name.trim().substring(0, 200), team.trim().substring(0, 200),
             matchedDiv?.id || null, matchedWc?.id || null,
             parsedGender, bodyWeight, lot, flight, platform,
             rackHeight, squatRack, benchRack, benchSafety, benchBlocks
@@ -359,7 +374,8 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
             // Check for opener weights in CSV
             const openerKey = `${liftType.charAt(0).toUpperCase() + liftType.slice(1)} Opener`;
             const openerAlt = `${liftType}_opener`;
-            const opener = parseFloat(record[openerKey] || record[openerAlt] || 0);
+            const rawOpener = record[openerKey] || record[openerAlt] || '0';
+            const opener = parseFloat(String(rawOpener).replace(/[^\d.]/g, '')) || 0;
             if (opener > 0) {
               db.prepare('UPDATE attempts SET weight = ? WHERE lifter_id = ? AND lift_type = ? AND attempt_number = 1').run(
                 opener, lifterId, liftType

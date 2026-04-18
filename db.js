@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const DB_PATH = path.join(__dirname, 'data', 'sway.db');
 
 let db;
+let isInitialized = false;
 
 function getDb(customPath) {
   if (!db || customPath) {
@@ -23,7 +24,11 @@ function getDb(customPath) {
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL'); // Safe with WAL, improves performance
     db.pragma('foreign_keys = ON');
-    initSchema();
+    
+    if (!isInitialized || customPath) {
+      initSchema();
+      if (!customPath) isInitialized = true;
+    }
   }
   return db;
 }
@@ -32,6 +37,7 @@ function resetDb() {
   if (db) {
     db.close();
     db = null;
+    isInitialized = false;
   }
 }
 
@@ -165,23 +171,27 @@ function initSchema() {
       description: 'Add units to meets',
       sql: "ALTER TABLE meets ADD COLUMN units TEXT DEFAULT 'kg'",
     },
-    // Add future migrations here: { version: N, description: '...', sql: '...' }
   ];
 
-  for (const m of migrations) {
-    if (appliedVersions.has(m.version)) continue;
-    try {
-      db.exec(m.sql);
-      db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
-      console.log(`[DB] Applied migration v${m.version}: ${m.description}`);
-    } catch (e) {
-      // 'duplicate column name' means it was already applied before version tracking
-      if (!e.message.includes('duplicate column name')) {
-        console.warn(`[DB] Migration v${m.version} warning: ${e.message}`);
+  const migrationTx = db.transaction(() => {
+    for (const m of migrations) {
+      if (appliedVersions.has(m.version)) continue;
+      try {
+        db.exec(m.sql);
+        db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
+        console.log(`[DB] Applied migration v${m.version}: ${m.description}`);
+      } catch (e) {
+        // 'duplicate column name' means it was already applied before version tracking
+        if (!e.message.includes('duplicate column name')) {
+          console.warn(`[DB] Migration v${m.version} warning: ${e.message}`);
+          throw e; // Fail the transaction for real errors
+        }
+        db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
       }
-      db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
     }
-  }
+  });
+
+  migrationTx();
 }
 
 function generateId() {

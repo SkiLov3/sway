@@ -78,14 +78,20 @@ app.get('/r/:code', (req, res) => {
 // ── Network helpers ────────────────────────────────────────────────────────────
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
+  const candidates = [];
+
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
+        // Prioritize physical interfaces like eth0 or en0
+        if (name.startsWith('eth') || name.startsWith('en') || name.startsWith('wlan')) {
+          return iface.address;
+        }
+        candidates.push(iface.address);
       }
     }
   }
-  return '127.0.0.1';
+  return candidates[0] || '127.0.0.1';
 }
 
 // QR Code endpoint
@@ -149,7 +155,11 @@ wss.on('connection', (ws) => {
       if (message.type === 'timer' && message.data?.meetId && message.data?.seconds !== undefined) {
         try {
           const db = getDb();
-          db.prepare('UPDATE meet_state SET clock_seconds = ? WHERE meet_id = ?').run(message.data.seconds, message.data.meetId);
+          // Ensure the meet exists before updating state
+          const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(message.data.meetId);
+          if (meet) {
+            db.prepare('UPDATE meet_state SET clock_seconds = ? WHERE meet_id = ?').run(message.data.seconds, message.data.meetId);
+          }
         } catch (e) {
           console.error('[WS] Failed to persist timer state:', e.message);
         }
