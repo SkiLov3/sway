@@ -13,7 +13,7 @@
     .wc-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); margin-bottom: 4px; }
     .wc-item input { background: transparent; border: none; color: var(--text-primary); font-size: 0.9rem; width: 100px; }
     .wc-item input:focus { outline: 1px solid var(--accent-primary); border-radius: 3px; }
-    .lifter-row { display: grid; grid-template-columns: 2fr 1fr 1fr 60px 80px 60px 40px 32px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+    .lifter-row { display: grid; grid-template-columns: 32px 2fr 1fr 1fr 60px 80px 60px 40px 32px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
     .lifter-row.header { font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-light); }
     .lifter-row input, .lifter-row select { background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 8px; border-radius: var(--radius-sm); font-size: 0.85rem; }
     .lifter-row input:focus, .lifter-row select:focus { outline: none; border-color: var(--accent-primary); }
@@ -124,10 +124,18 @@
     <div class="card mt-24">
       <div class="card-header">
         <div class="card-title">🏋️ Lifters (<span id="lifterCount">0</span>)</div>
-        <button class="btn btn-primary btn-sm" onclick="addLifter()">+ Add Lifter</button>
+        <div id="bulkActions" style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-danger btn-sm" id="clearAllBtn" onclick="clearAllLifters()" style="margin-right:8px">🧨 Clear All</button>
+          <button class="btn btn-primary btn-sm" onclick="addLifter()">+ Add Lifter</button>
+        </div>
+      </div>
+      <div id="bulkSelectionBar" style="display:none;background:var(--accent-glow);padding:8px 16px;border-bottom:1px solid var(--accent-primary);justify-content:space-between;align-items:center">
+        <div style="font-size:0.85rem;font-weight:700"><span id="selectedCount">0</span> lifters selected</div>
+        <button class="btn btn-danger btn-sm" onclick="deleteSelectedLifters()">🗑️ Delete Selected</button>
       </div>
       <div id="liftersContainer">
         <div class="lifter-row header">
+          <div style="display:flex;justify-content:center"><input type="checkbox" id="selectAllLifters" onchange="toggleSelectAll(this.checked)"></div>
           <div>Name / Team</div>
           <div>Division</div>
           <div>Weight Class</div>
@@ -173,6 +181,7 @@
     let meet = null;
     let divisions = [];
     let lifters = [];
+    let selectedLifterIds = new Set();
     let meetUnits = 'kg';
 
     createSidebar(meetId, '', 'setup');
@@ -297,12 +306,16 @@
         <div class="modal-title">📋 Division Presets</div>
         <p style="color:var(--text-secondary);margin-bottom:16px">Select a preset to auto-populate divisions and weight classes.</p>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <button class="btn btn-outline" onclick="applyPreset('usapl_mens')">USAPL Men's</button>
-          <button class="btn btn-outline" onclick="applyPreset('usapl_womens')">USAPL Women's</button>
-          <button class="btn btn-outline" onclick="applyPreset('uspa_mens')">USPA Men's</button>
-          <button class="btn btn-outline" onclick="applyPreset('uspa_womens')">USPA Women's</button>
-          <button class="btn btn-outline" onclick="applyPreset('ipf_mens')">IPF Men's</button>
-          <button class="btn btn-outline" onclick="applyPreset('ipf_womens')">IPF Women's</button>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;text-transform:uppercase;letter-spacing:1px">Metric (kg)</div>
+          <button class="btn btn-outline" onclick="applyPreset('usapl_mens')">USAPL Men's (kg)</button>
+          <button class="btn btn-outline" onclick="applyPreset('usapl_womens')">USAPL Women's (kg)</button>
+          <button class="btn btn-outline" onclick="applyPreset('ipf_mens')">IPF Men's (kg)</button>
+          <button class="btn btn-outline" onclick="applyPreset('ipf_womens')">IPF Women's (kg)</button>
+          
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;text-transform:uppercase;letter-spacing:1px">Imperial (lb)</div>
+          <button class="btn btn-outline" onclick="applyPreset('uspa_mens_lb')">USPA Men's (lb)</button>
+          <button class="btn btn-outline" onclick="applyPreset('uspa_womens_lb')">USPA Women's (lb)</button>
+          <button class="btn btn-outline" onclick="applyPreset('generic_lb')">Generic LB Classes</button>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
@@ -311,12 +324,13 @@
     }
 
     const PRESETS = {
-      usapl_mens: { name: "Men's Raw Open", wcs: ['52', '56', '60', '67.5', '75', '82.5', '90', '100', '110', '125', '140', '140+'] },
-      usapl_womens: { name: "Women's Raw Open", wcs: ['44', '48', '52', '56', '60', '67.5', '75', '82.5', '90', '90+'] },
-      uspa_mens: { name: "Men's Open", wcs: ['52', '56', '60', '67.5', '75', '82.5', '90', '100', '110', '125', '140', '140+'] },
-      uspa_womens: { name: "Women's Open", wcs: ['44', '48', '52', '56', '60', '67.5', '75', '82.5', '90', '90+'] },
-      ipf_mens: { name: "Men's Open", wcs: ['53', '59', '66', '74', '83', '93', '105', '120', '120+'] },
-      ipf_womens: { name: "Women's Open", wcs: ['43', '47', '52', '57', '63', '69', '76', '84', '84+'] },
+      usapl_mens: { name: "Men's Raw Open", wcs: ['52', '56', '60', '67.5', '75', '82.5', '90', '100', '110', '125', '140', '140+'], unit: 'kg' },
+      usapl_womens: { name: "Women's Raw Open", wcs: ['44', '48', '52', '56', '60', '75', '82.5', '82.5+'], unit: 'kg' },
+      ipf_mens: { name: "Men's Open", wcs: ['53', '59', '66', '74', '83', '93', '105', '120', '120+'], unit: 'kg' },
+      ipf_womens: { name: "Women's Open", wcs: ['43', '47', '52', '57', '63', '69', '76', '84', '84+'], unit: 'kg' },
+      uspa_mens_lb: { name: "Men's Open (lb)", wcs: ['114', '132', '148', '165', '181', '198', '220', '242', '275', '308', '308+'], unit: 'lb' },
+      uspa_womens_lb: { name: "Women's Open (lb)", wcs: ['97', '105', '114', '123', '132', '148', '165', '181', '198', '198+'], unit: 'lb' },
+      generic_lb: { name: "Powerlifting (lb)", wcs: ['135', '155', '175', '195', '215', '235', '255', '275', '275+'], unit: 'lb' }
     };
 
     async function applyPreset(key) {
@@ -324,7 +338,11 @@
       try {
         const div = await API.createDivision(meetId, { name: preset.name });
         for (const wc of preset.wcs) {
-          await API.createWeightClass(div.id, { name: wc, max_weight: parseFloat(wc) || 999 });
+          const name = wc.endsWith('+') ? wc : `${wc}${preset.unit || ''}`;
+          await API.createWeightClass(div.id, { 
+            name: name, 
+            max_weight: parseFloat(wc) || 999 
+          });
         }
         await loadDivisions();
         closeModal();
@@ -358,9 +376,11 @@
         const sqOpener = (l.attempts || []).find(a => a.lift_type === 'squat' && a.attempt_number === 1)?.weight || '';
         const bpOpener = (l.attempts || []).find(a => a.lift_type === 'bench' && a.attempt_number === 1)?.weight || '';
         const dlOpener = (l.attempts || []).find(a => a.lift_type === 'deadlift' && a.attempt_number === 1)?.weight || '';
+        const isChecked = selectedLifterIds.has(l.id);
 
         return `
           <div class="lifter-row" data-id="${l.id}">
+            <div style="display:flex;justify-content:center"><input type="checkbox" class="lifter-checkbox" data-id="${l.id}" ${isChecked ? 'checked' : ''} onchange="toggleLifterSelect('${l.id}', this.checked)"></div>
             <div>
               <input value="${escapeHtml(l.name)}" placeholder="Lifter name" onchange="updateLifterField('${l.id}', 'name', this.value)" style="width:60%">
               <input value="${escapeHtml(l.team || '')}" placeholder="Team" onchange="updateLifterField('${l.id}', 'team', this.value)" style="width:35%">
@@ -471,7 +491,63 @@
 
     async function deleteLifter(id) {
       if (!confirm('Delete this lifter?')) return;
-      try { await API.deleteLifter(id); await loadLifters(); showToast('Lifter removed'); } catch (err) { showToast(err.message, 'error'); }
+      try { 
+        await API.deleteLifter(id); 
+        selectedLifterIds.delete(id);
+        updateBulkUI();
+        await loadLifters(); 
+        showToast('Lifter removed'); 
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    function toggleLifterSelect(id, isChecked) {
+      if (isChecked) selectedLifterIds.add(id);
+      else selectedLifterIds.delete(id);
+      updateBulkUI();
+    }
+
+    function toggleSelectAll(isChecked) {
+      if (isChecked) lifters.forEach(l => selectedLifterIds.add(l.id));
+      else selectedLifterIds.clear();
+      renderLifters();
+      updateBulkUI();
+    }
+
+    function updateBulkUI() {
+      const bar = document.getElementById('bulkSelectionBar');
+      const countEl = document.getElementById('selectedCount');
+      const selectAll = document.getElementById('selectAllLifters');
+      
+      countEl.textContent = selectedLifterIds.size;
+      bar.style.display = selectedLifterIds.size > 0 ? 'flex' : 'none';
+      
+      if (selectAll) {
+        selectAll.checked = selectedLifterIds.size > 0 && selectedLifterIds.size === lifters.length;
+        selectAll.indeterminate = selectedLifterIds.size > 0 && selectedLifterIds.size < lifters.length;
+      }
+    }
+
+    async function deleteSelectedLifters() {
+      const ids = Array.from(selectedLifterIds);
+      if (!confirm(`Are you sure you want to delete ${ids.length} selected lifters?`)) return;
+      try {
+        await API.deleteLiftersBulk({ ids });
+        selectedLifterIds.clear();
+        updateBulkUI();
+        await loadLifters();
+        showToast(`Deleted ${ids.length} lifters`);
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function clearAllLifters() {
+      if (!confirm('🧨 CRITICAL ACTION: Are you sure you want to delete ALL lifters from this meet? This cannot be undone.')) return;
+      try {
+        await API.deleteLiftersBulk({ meetId });
+        selectedLifterIds.clear();
+        updateBulkUI();
+        await loadLifters();
+        showToast('Roster cleared');
+      } catch (err) { showToast(err.message, 'error'); }
     }
 
     // CSV Import

@@ -178,8 +178,10 @@ async function showQRCode(e) {
     if (meet && meet.short_code) {
       paths[0].path = `/tv/${meet.short_code}`;
       paths[1].path = `/join/${meet.short_code}`;
+      paths[2].path = `/r/${meet.short_code}`;
       paths[0].displayUrl = `${info.baseUrl}/tv/${meet.short_code}`;
       paths[1].displayUrl = `${info.baseUrl}/join/${meet.short_code}`;
+      paths[2].displayUrl = `${info.baseUrl}/r/${meet.short_code}`;
     }
     
     let html = '<div class="modal-title">📱 QR Codes & Short URLs</div>';

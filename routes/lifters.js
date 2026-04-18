@@ -165,6 +165,37 @@ router.put('/:id', (req, res) => {
   }
 });
 
+// Bulk delete lifters
+router.delete('/bulk', (req, res) => {
+  try {
+    const db = getDb();
+    const { meetId, ids } = req.body;
+    
+    console.log(`[API] Bulk delete request. meetId: ${meetId}, ids: ${ids?.length || 0}`);
+
+    if (!meetId && (!ids || !Array.isArray(ids) || ids.length === 0)) {
+      return res.status(400).json({ error: 'Either meetId or list of ids is required' });
+    }
+
+    const deleteTx = db.transaction((mId, lifterIds) => {
+      if (mId) {
+        const result = db.prepare('DELETE FROM lifters WHERE meet_id = ?').run(mId);
+        console.log(`[API] Deleted ${result.changes} lifters for meet ${mId}`);
+      } else if (lifterIds && lifterIds.length > 0) {
+        const placeholders = lifterIds.map(() => '?').join(',');
+        const result = db.prepare(`DELETE FROM lifters WHERE id IN (${placeholders})`).run(...lifterIds);
+        console.log(`[API] Deleted ${result.changes} specific lifters`);
+      }
+    });
+
+    deleteTx(meetId, ids);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[API] Bulk delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete lifter
 router.delete('/:id', (req, res) => {
   try {
