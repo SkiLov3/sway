@@ -56,13 +56,29 @@
     <div class="run-layout">
       <!-- Lifting Order Table -->
       <div>
-        <div class="flex-between mb-16">
-          <div class="lift-tabs" id="liftTabs">
+        <div class="flex-between mb-16" style="align-items:center">
+          <div class="lift-tabs" id="liftTabs" style="margin-bottom:0">
             <button class="lift-tab active" data-lift="squat" onclick="switchLift('squat')">Squat</button>
             <button class="lift-tab" data-lift="bench" onclick="switchLift('bench')">Bench</button>
             <button class="lift-tab" data-lift="deadlift" onclick="switchLift('deadlift')">Deadlift</button>
           </div>
-          <div class="flight-tabs" id="flightTabs">
+          
+          <div style="flex:1; display:flex; justify-content:center; gap:20px; padding:0 20px">
+            <div style="text-align:center; background:var(--bg-tertiary); padding:6px 16px; border-radius:6px; border:1px solid var(--border-color); flex:1; max-width:160px">
+              <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:2px">On Deck</div>
+              <div id="uiOnDeck" style="font-weight:700; color:var(--accent-secondary); font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">—</div>
+            </div>
+            <div style="text-align:center; background:var(--bg-tertiary); padding:6px 16px; border-radius:6px; border:1px solid var(--border-color); flex:1; max-width:160px">
+              <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:2px">In the Hole</div>
+              <div id="uiInHole" style="font-weight:700; color:var(--text-primary); font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">—</div>
+            </div>
+            <div style="text-align:center; background:var(--bg-tertiary); padding:6px 16px; border-radius:6px; border:1px solid var(--border-color); flex:1; max-width:160px">
+              <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:2px">Deep Hole</div>
+              <div id="uiDeepHole" style="font-weight:700; color:var(--text-primary); font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">—</div>
+            </div>
+          </div>
+
+          <div class="flight-tabs" id="flightTabs" style="margin-bottom:0">
             <button class="flight-tab active" data-flight="A" onclick="switchFlight('A')">A</button>
             <button class="flight-tab" data-flight="B" onclick="switchFlight('B')">B</button>
             <button class="flight-tab" data-flight="C" onclick="switchFlight('C')">C</button>
@@ -348,19 +364,30 @@
         
         // Show rack height for current lift
         const rackEl = document.getElementById('currentRackHeight');
-        let rackHeight = '';
+        let rawRackHeight = '';
         let rackLabel = '';
         if (currentLift === 'squat') {
-          rackHeight = lifter.squat_rack_height || lifter.rack_height || '';
+          rawRackHeight = lifter.squat_rack_height || lifter.rack_height || '';
           rackLabel = 'Squat Rack';
         } else if (currentLift === 'bench') {
-          rackHeight = lifter.bench_rack_height || lifter.rack_height || '';
+          rawRackHeight = lifter.bench_rack_height || lifter.rack_height || '';
           rackLabel = 'Bench Rack';
         }
-        if (rackLabel && rackHeight.trim()) {
+
+        const safeRackHeight = String(rawRackHeight || '').trim();
+        let showRackBox = !!rackLabel && (safeRackHeight !== '');
+        
+        if (currentLift === 'squat' || currentLift === 'bench') {
+            showRackBox = true; // Always show config block for squat/bench because IN/OUT and Block configs exist
+        }
+
+        if (showRackBox) {
           rackEl.style.display = 'block';
-          let info = `🔧 ${rackLabel}: ${rackHeight.trim()}`;
-          if (currentLift === 'bench') {
+          let info = `🔧 ${rackLabel}: ${safeRackHeight !== '' ? safeRackHeight : '—'}`;
+          if (currentLift === 'squat') {
+            const inOut = lifter.squat_rack_in_out === 'IN' ? 'IN' : 'OUT';
+            info += ` | ↔️ ${inOut}`;
+          } else if (currentLift === 'bench') {
             const safety = lifter.bench_safety_height || '4';
             const blocks = lifter.bench_blocks === 'Y' ? 'Blocks: YES' : 'No Blocks';
             info += ` | 🛡️ Safety: ${safety} | 🦶 ${blocks}`;
@@ -389,6 +416,14 @@
         document.getElementById('currentLifterWeight').textContent = '—';
         document.getElementById('currentAttemptInfo').textContent = '';
       }
+      
+      const onDeck = liftingOrder[currentLifterIdx + 1];
+      const inHole = liftingOrder[currentLifterIdx + 2];
+      const inDeepHole = liftingOrder[currentLifterIdx + 3];
+
+      document.getElementById('uiOnDeck').textContent = onDeck ? onDeck.name : '—';
+      document.getElementById('uiInHole').textContent = inHole ? inHole.name : '—';
+      document.getElementById('uiDeepHole').textContent = inDeepHole ? inDeepHole.name : '—';
       
       renderOrder();
     }

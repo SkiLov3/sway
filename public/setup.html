@@ -446,6 +446,13 @@
                   onchange="updateLifterField('${l.id}', 'squat_rack_height', this.value)">
               </div>
               <div class="detail-field">
+                <label>Squat In/Out</label>
+                <select onchange="updateLifterField('${l.id}', 'squat_rack_in_out', this.value)" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:8px 10px;border-radius:var(--radius-sm);font-size:0.9rem;font-family:'Roboto Condensed';font-weight:700;">
+                  <option value="OUT" ${l.squat_rack_in_out !== 'IN' ? 'selected' : ''}>OUT (Default)</option>
+                  <option value="IN" ${l.squat_rack_in_out === 'IN' ? 'selected' : ''}>IN</option>
+                </select>
+              </div>
+              <div class="detail-field">
                 <label>Bench Rack Height</label>
                 <input type="text" value="${escapeHtml(l.bench_rack_height || '')}" placeholder="e.g. 7"
                   onchange="updateLifterField('${l.id}', 'bench_rack_height', this.value)">

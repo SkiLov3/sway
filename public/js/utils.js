@@ -201,6 +201,7 @@ async function showQRCode(e) {
       { name: 'Display (TV)', path: `/display.html?meetId=${meetId}&platform=1`, displayUrl: '' },
       { name: 'Referee', path: `/referee.html?meetId=${meetId}&platform=1`, displayUrl: '' },
       { name: 'Results', path: `/results.html?meetId=${meetId}`, displayUrl: '' },
+      { name: 'Run / Board', path: `/run.html?meetId=${meetId}&platform=1`, displayUrl: '' },
     ];
     
     // Override with short URLs if short code exists
@@ -208,9 +209,11 @@ async function showQRCode(e) {
       paths[0].path = `/tv/${meet.short_code}`;
       paths[1].path = `/join/${meet.short_code}`;
       paths[2].path = `/r/${meet.short_code}`;
+      paths[3].path = `/run/${meet.short_code}`;
       paths[0].displayUrl = `${info.baseUrl}/tv/${meet.short_code}`;
       paths[1].displayUrl = `${info.baseUrl}/join/${meet.short_code}`;
       paths[2].displayUrl = `${info.baseUrl}/r/${meet.short_code}`;
+      paths[3].displayUrl = `${info.baseUrl}/run/${meet.short_code}`;
     }
     
     let html = '<div class="modal-title">📱 QR Codes & Short URLs</div>';

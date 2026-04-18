@@ -410,11 +410,14 @@
       let rackLabelText = '';
       let extraHtml = '';
 
+      let rawRackHeight = '';
       if (liftType === 'squat') {
-        rackHeight = lifter.squat_rack_height || lifter.rack_height || '';
+        rawRackHeight = lifter.squat_rack_height || lifter.rack_height || '';
         rackLabelText = 'Squat Rack';
+        const inOut = lifter.squat_rack_in_out === 'IN' ? 'IN' : 'OUT';
+        extraHtml = `<div class="rack-extra-info">↔️ ${inOut}</div>`;
       } else if (liftType === 'bench') {
-        rackHeight = lifter.bench_rack_height || lifter.rack_height || '';
+        rawRackHeight = lifter.bench_rack_height || lifter.rack_height || '';
         rackLabelText = 'Bench Rack';
         const safety = lifter.bench_safety_height || '4';
         const blocks = lifter.bench_blocks === 'Y' ? 'YES' : 'NO';
@@ -422,10 +425,12 @@
                      <div class="rack-extra-info" style="border:none;padding:0;margin-top:2px">🦶 Blocks: ${blocks}</div>`;
       }
 
-      if (rackHeight && rackHeight.trim()) {
+      const safeRackHeight = String(rawRackHeight || '').trim();
+
+      if (safeRackHeight !== '' || extraHtml !== '') {
         badge.classList.remove('no-rack');
         rackLabel.textContent = rackLabelText;
-        rackValue.textContent = rackHeight.trim();
+        rackValue.textContent = safeRackHeight !== '' ? safeRackHeight : '—';
         rackExtra.innerHTML = extraHtml;
       } else {
         badge.classList.add('no-rack');

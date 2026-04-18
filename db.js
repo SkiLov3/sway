@@ -87,6 +87,7 @@ function initSchema() {
       rack_height TEXT DEFAULT '',
       bench_rack_height TEXT DEFAULT '',
       squat_rack_height TEXT DEFAULT '',
+      squat_rack_in_out TEXT DEFAULT 'OUT',
       bench_safety_height TEXT DEFAULT '4',
       bench_blocks TEXT DEFAULT 'N',
       created_at TEXT DEFAULT (datetime('now')),
@@ -170,6 +171,11 @@ function initSchema() {
       version: 6,
       description: 'Add units to meets',
       sql: "ALTER TABLE meets ADD COLUMN units TEXT DEFAULT 'kg'",
+    },
+    {
+      version: 7,
+      description: 'Add squat_rack_in_out to lifters',
+      sql: "ALTER TABLE lifters ADD COLUMN squat_rack_in_out TEXT DEFAULT 'IN'",
     },
   ];
 
