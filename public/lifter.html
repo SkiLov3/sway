@@ -182,7 +182,7 @@
     async function init() {
       try {
         const meet = await API.getMeet(meetId);
-        meetUnits = (meet.units === 'lbs' ? 'lb' : 'kg');
+        meetUnits = (meet.units === 'lbs' ? 'lbs' : 'kg');
         document.getElementById('meetTitle').textContent = meet.name;
         document.title = `${meet.name} — Lifter Dashboard`;
         

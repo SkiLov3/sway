@@ -4,9 +4,11 @@ const API_BASE = '/api';
 
 // ── REST API ──
 async function api(path, options = {}) {
-  const url = `${API_BASE}${path}`;
+  const separator = path.includes('?') ? '&' : '?';
+  const url = `${API_BASE}${path}${separator}_t=${Date.now()}`;
   const config = {
     headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
     ...options
   };
   if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {

@@ -74,7 +74,7 @@
     async function init() {
       try {
         const meet = await API.getMeet(meetId);
-        meetUnits = (meet.units === 'lbs' ? 'lb' : 'kg');
+        meetUnits = (meet.units === 'lbs' ? 'lbs' : 'kg');
         document.getElementById('meetTitle').textContent = meet.name;
         document.title = `${meet.name} — Results — SWAY`;
         updateTableHeaders();
@@ -103,7 +103,7 @@
         try {
           const m = await API.getMeet(meetId);
           const oldUnits = meetUnits;
-          meetUnits = (m.units === 'lbs' ? 'lb' : 'kg');
+          meetUnits = (m.units === 'lbs' ? 'lbs' : 'kg');
           if (oldUnits !== meetUnits) {
             updateTableHeaders();
             loadResults();

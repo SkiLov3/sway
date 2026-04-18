@@ -160,8 +160,8 @@
         <!-- Quick Actions -->
         <div class="card" style="padding:16px">
           <div class="card-title" style="margin-bottom:12px;font-size:0.9rem">Quick Actions</div>
-          <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px" onclick="advanceLifter()">Next Lifter →</button>
-          <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px" onclick="advanceRound()">Next Round →</button>
+          <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px" onclick="advanceLifter()">⏭ Next Lifter</button>
+          <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:8px" onclick="advanceRound()">⏭ Next Round</button>
           <button class="btn btn-outline btn-sm" style="width:100%" onclick="window.open(`/display.html?meetId=${meetId}&platform=${platform}`, '_blank')">📺 Open Display View</button>
         </div>
       </div>
@@ -199,7 +199,7 @@
 
     async function init() {
       meet = await API.getMeet(meetId);
-      meetUnits = meet.units === 'lbs' ? 'lb' : 'kg';
+      meetUnits = meet.units === 'lbs' ? 'lbs' : 'kg';
       document.getElementById('meetTitle').textContent = meet.name;
       document.title = `${meet.name} — Run — SWAY`;
       
@@ -248,7 +248,7 @@
 
         socket.on('meet_updated', () => loadOrder());
         socket.on('attempt_updated', () => loadOrder());
-        socket.on('decision_made', (data) => {
+        socket.on('decision_made', async (data) => {
           loadOrder();
           if (data && (data.result === 'good' || data.result === 'no_good')) {
             timer.reset(60);
@@ -257,6 +257,19 @@
               btn.innerHTML = '▶ Start';
               btn.className = 'btn btn-success btn-sm';
             }
+            
+            // Auto-advance mechanism tied exactly to the TV delay
+            if (advanceTimeout) clearTimeout(advanceTimeout);
+            
+            let delayMs = 15000;
+            try {
+              const m = await API.getMeet(meetId);
+              delayMs = (m.decision_display_seconds || 15) * 1000;
+            } catch(e) {}
+            
+            advanceTimeout = setTimeout(() => {
+              advanceLifter();
+            }, delayMs);
           }
         });
 
@@ -271,18 +284,18 @@
         setInterval(async () => {
           try {
             const m = await API.getMeet(meetId);
-            meetUnits = (m.units === 'lbs' ? 'lb' : 'kg');
+          meetUnits = (m.units === 'lbs' ? 'lbs' : 'kg');
           } catch (e) {}
         }, 5000);
       }
       updateStatusUI();
     }
 
-    async function loadOrder() {
+    async function loadOrder(broadcastState = false) {
       try {
         liftingOrder = await API.getLiftingOrder(meetId, platform, currentFlight, currentLift, currentAttemptNum);
         renderOrder();
-        updateCurrentLifter();
+        updateCurrentLifter(broadcastState);
       } catch (err) {
         console.error('Load order error:', err);
       }
@@ -340,7 +353,7 @@
       }).join('');
     }
 
-    function updateCurrentLifter() {
+    function updateCurrentLifter(broadcastState = true) {
       // Clear out the manual Chief Table referee panel
       refDecisions = { ref1: '', ref2: '', ref3: '' };
       [1,2,3].forEach(n => {
@@ -405,17 +418,29 @@
           document.getElementById(`refSmall${n}`).className = `ref-light ${refVal || 'waiting'}`;
         });
 
-        // Save state
-        API.updateMeetState(meetId, {
-          current_lift_type: currentLift,
-          current_attempt_number: currentAttemptNum,
-          current_flight: currentFlight,
-          current_lifter_id: lifter.id
-        });
+        if (broadcastState) {
+          // Save state
+          API.updateMeetState(meetId, {
+            current_lift_type: currentLift,
+            current_attempt_number: currentAttemptNum,
+            current_flight: currentFlight,
+            current_lifter_id: lifter.id
+          });
+        }
       } else {
         document.getElementById('currentLifterName').textContent = '—';
         document.getElementById('currentLifterWeight').textContent = '—';
-        document.getElementById('currentAttemptInfo').textContent = '';
+        document.getElementById('currentAttemptInfo').textContent = `${LIFT_NAMES[currentLift] || currentLift} — Attempt ${currentAttemptNum}`;
+        document.getElementById('currentRackHeight').style.display = 'none';
+        
+        if (broadcastState) {
+          API.updateMeetState(meetId, {
+            current_lift_type: currentLift,
+            current_attempt_number: currentAttemptNum,
+            current_flight: currentFlight,
+            current_lifter_id: ''
+          });
+        }
       }
       
       const onDeck = liftingOrder[currentLifterIdx + 1];
@@ -430,6 +455,7 @@
     }
 
     function selectLifter(idx) {
+      if (advanceTimeout) clearTimeout(advanceTimeout);
       currentLifterIdx = idx;
       updateCurrentLifter();
     }
@@ -491,6 +517,8 @@
       light.className = `ref-light ${decision || 'waiting'}`;
     }
 
+    let advanceTimeout = null;
+
     async function submitDecision() {
       const lifter = liftingOrder[currentLifterIdx];
       if (!lifter) return;
@@ -513,6 +541,7 @@
     }
 
     function advanceLifter() {
+      if (advanceTimeout) clearTimeout(advanceTimeout);
       if (currentLifterIdx < liftingOrder.length - 1) {
         currentLifterIdx++;
         updateCurrentLifter();
@@ -524,19 +553,18 @@
     }
 
     function advanceRound() {
-      const activeIdx = activeFlights.indexOf(currentFlight);
-      
-      if (activeIdx >= 0 && activeIdx < activeFlights.length - 1) {
-        // Move to next flight, same lift and attempt
-        currentFlight = activeFlights[activeIdx + 1];
+      if (advanceTimeout) clearTimeout(advanceTimeout);
+      // Execute Attempt 1, 2, 3 for the current flight before moving to the next flight
+      if (currentAttemptNum < 3) {
+        currentAttemptNum++;
       } else {
-        // Last flight of this round
-        if (currentAttemptNum < 3) {
-          // Restart first flight, next attempt
-          currentFlight = activeFlights[0];
-          currentAttemptNum++;
+        const activeIdx = activeFlights.indexOf(currentFlight);
+        if (activeIdx >= 0 && activeIdx < activeFlights.length - 1) {
+          // Move to next flight, reset attempt to 1
+          currentFlight = activeFlights[activeIdx + 1];
+          currentAttemptNum = 1;
         } else {
-          // Last flight, last attempt -> Next Lift
+          // Last flight, last attempt -> Move to Next Lift
           currentFlight = activeFlights[0];
           currentAttemptNum = 1;
           
@@ -551,7 +579,7 @@
       updateFlightTabsUI();
       
       currentLifterIdx = 0;
-      loadOrder();
+      loadOrder(true);
       resetTimer();
     }
     
@@ -567,19 +595,21 @@
     }
 
     function switchLift(lift) {
+      if (advanceTimeout) clearTimeout(advanceTimeout);
       currentLift = lift;
       currentAttemptNum = 1;
       currentLifterIdx = 0;
       document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === lift));
       updateFlightTabsUI();
-      loadOrder();
+      loadOrder(true);
     }
 
     function switchFlight(flight) {
+      if (advanceTimeout) clearTimeout(advanceTimeout);
       currentFlight = flight;
       currentLifterIdx = 0;
       updateFlightTabsUI();
-      loadOrder();
+      loadOrder(true);
     }
 
     function toggleTimer() {

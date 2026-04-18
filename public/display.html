@@ -255,8 +255,8 @@
 
   <div class="fullscreen-hint" ondblclick="toggleFullscreen()">Double-click for fullscreen</div>
 
-  <script src="/js/api.js"></script>
-  <script src="/js/utils.js"></script>
+  <script src="/js/api.js?v=2"></script>
+  <script src="/js/utils.js?v=2"></script>
   <script>
     const meetId = getParam('meetId');
     const platform = parseInt(getParam('platform') || '1');
@@ -288,11 +288,15 @@
       if (!socketListenersRegistered) {
         socketListenersRegistered = true;
 
-        socket.on('state_changed', (data) => {
+        socket.on('meet_updated', (data) => {
           if (data.meetId === meetId && !isFlashing) loadState();
         });
 
         socket.on('attempt_updated', (data) => {
+          if (data.meetId === meetId && !isFlashing) loadState();
+        });
+
+        socket.on('state_changed', (data) => {
           if (data.meetId === meetId && !isFlashing) loadState();
         });
 
@@ -348,7 +352,7 @@
       setInterval(async () => {
         try {
           const m = await API.getMeet(meetId);
-          meetUnits = m.units === 'lbs' ? 'lb' : 'kg';
+          meetUnits = m.units === 'lbs' ? 'lbs' : 'kg';
           window.decisionDisplaySeconds = m.decision_display_seconds || 15;
           document.getElementById('displayMeetName').textContent = m.name;
         } catch (e) {}
@@ -368,6 +372,15 @@
             liftType: state.current_lift_type || 'squat',
             attemptNumber: state.current_attempt_number || 1,
             liftingOrder: order,
+            flight: state.current_flight || 'A'
+          });
+        } else {
+          updateDisplay({
+            lifter: { name: 'Waiting for attempts...', id: '' },
+            attempt: null,
+            liftType: state.current_lift_type || 'squat',
+            attemptNumber: state.current_attempt_number || 1,
+            liftingOrder: [],
             flight: state.current_flight || 'A'
           });
         }

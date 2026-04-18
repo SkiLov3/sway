@@ -159,6 +159,7 @@ function createSidebar(meetId, meetName, activePage) {
         <div class="sidebar-section">Meet</div>
         <a href="/setup.html?meetId=${meetId}" class="sidebar-link ${activePage === 'setup' ? 'active' : ''}">⚙️ Setup</a>
         <a href="/results.html?meetId=${meetId}" class="sidebar-link ${activePage === 'results' ? 'active' : ''}">📊 Results</a>
+        <a href="/lifter.html?meetId=${meetId}" class="sidebar-link ${activePage === 'lifter' ? 'active' : ''}">💪 Lifter Portal</a>
         <div class="sidebar-section">Platform 1</div>
         <a href="/run.html?meetId=${meetId}&platform=1" class="sidebar-link ${activePage === 'run' ? 'active' : ''}">🏋️ Run / Board</a>
         <a href="/display.html?meetId=${meetId}&platform=1" class="sidebar-link ${activePage === 'display' ? 'active' : ''}">📺 Display (TV)</a>

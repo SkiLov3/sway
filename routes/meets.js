@@ -311,8 +311,14 @@ router.put('/:id/state', (req, res) => {
       clock_running = COALESCE(?, clock_running)
     WHERE meet_id = ?
   `).run(
-    current_platform, current_lift_type, current_attempt_number, current_flight,
-    current_lifter_id, clock_seconds, clock_running, req.params.id
+    current_platform ?? null, 
+    current_lift_type ?? null, 
+    current_attempt_number ?? null, 
+    current_flight ?? null,
+    current_lifter_id ?? null, 
+    clock_seconds ?? null, 
+    clock_running ?? null, 
+    req.params.id
   );
   
   const updated = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
