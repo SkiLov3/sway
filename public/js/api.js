@@ -49,7 +49,8 @@ const API = {
   createLifter: (data) => api('/lifters', { method: 'POST', body: data }),
   updateLifter: (id, data) => api(`/lifters/${id}`, { method: 'PUT', body: data }),
   deleteLifter: (id) => api(`/lifters/${id}`, { method: 'DELETE' }),
-  deleteLiftersBulk: (data) => api('/lifters', { method: 'DELETE', body: data }),
+  deleteLiftersBulk: (data) => api('/lifters/bulk', { method: 'DELETE', body: data }),
+  updateLiftersBulk: (data) => api('/lifters/bulk', { method: 'PATCH', body: data }),
   importCSV: (meetId, formData) => api(`/lifters/import/${meetId}`, { method: 'POST', body: formData }),
   
   // Attempts

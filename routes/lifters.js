@@ -165,6 +165,34 @@ router.put('/:id', (req, res) => {
   }
 });
 
+// Bulk update lifters (e.g., move to another flight or division)
+router.patch('/bulk', (req, res) => {
+  try {
+    const db = getDb();
+    const { ids, flight, division_id } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Array of lifter ids is required' });
+    }
+
+    const updateTx = db.transaction(() => {
+      if (flight !== undefined) {
+        const placeholders = ids.map(() => '?').join(',');
+        db.prepare(`UPDATE lifters SET flight = ? WHERE id IN (${placeholders})`).run(flight, ...ids);
+      }
+      if (division_id !== undefined) {
+        const placeholders = ids.map(() => '?').join(',');
+        db.prepare(`UPDATE lifters SET division_id = ? WHERE id IN (${placeholders})`).run(division_id, ...ids);
+      }
+    });
+
+    updateTx();
+    res.json({ success: true, updated: ids.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Bulk delete lifters
 router.delete('/bulk', (req, res) => {
   try {

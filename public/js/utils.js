@@ -113,7 +113,36 @@ const LIFT_NAMES = {
 };
 
 /**
- * Create a sidebar for a page
+ * Global status UI updater. Finds any '.status-dot' or '#statusDot'
+ * and updates its color based on WebSocket connectivity.
+ */
+function updateStatusUI() {
+  const dots = document.querySelectorAll('.status-dot, #statusDot');
+  const isConnected = socket && socket.connected;
+  
+  dots.forEach(dot => {
+    dot.style.background = isConnected ? '#4CAF50' : '#f44336';
+    dot.style.boxShadow = isConnected ? '0 0 8px #4CAF50' : '0 0 8px #f44336';
+    dot.title = isConnected ? 'Live Connection' : 'Disconnected / Offline';
+  });
+
+  const badges = document.querySelectorAll('#statusBadge');
+  badges.forEach(badge => {
+    badge.textContent = isConnected ? 'LIVE' : 'OFFLINE';
+    badge.style.background = isConnected ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)';
+    badge.style.color = isConnected ? '#4CAF50' : '#f44336';
+  });
+}
+
+// Hook into existing socket if it exists to auto-update UI
+if (typeof socket !== 'undefined') {
+  socket.on('connected', updateStatusUI);
+  socket.on('disconnected', updateStatusUI);
+  socket.on('reconnected', updateStatusUI);
+}
+
+/**
+ * Shared sidebar generator
  */
 function createSidebar(meetId, meetName, activePage) {
   const sidebarHtml = `
@@ -294,13 +323,39 @@ class CompetitionTimer {
 }
 
 /**
- * Escape HTML to prevent XSS
+ * Robustly escape HTML characters to prevent XSS. 
+ * Use this for any user-provided content rendered via innerHTML.
  */
-function escapeHtml(text) {
-  if (text === null || text === undefined) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+function escapeHtml(str) {
+  if (!str && str !== 0) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Shared color palette for connection/meet states
+ */
+function getStatusColor(status) {
+  switch (status?.toLowerCase()) {
+    case 'online':
+    case 'connected':
+    case 'started':
+      return '#4CAF50'; // Green
+    case 'offline':
+    case 'disconnected':
+      return '#f44336'; // Red
+    case 'setup':
+    case 'connecting':
+      return '#FFC107'; // Amber
+    case 'finished':
+      return '#2196F3'; // Blue
+    default:
+      return '#9e9e9e'; // Grey
+  }
 }
 
 /**

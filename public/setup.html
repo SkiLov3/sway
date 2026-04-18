@@ -129,10 +129,26 @@
           <button class="btn btn-primary btn-sm" onclick="addLifter()">+ Add Lifter</button>
         </div>
       </div>
-      <div id="bulkSelectionBar" style="display:none;background:var(--accent-glow);padding:8px 16px;border-bottom:1px solid var(--accent-primary);justify-content:space-between;align-items:center">
-        <div style="font-size:0.85rem;font-weight:700"><span id="selectedCount">0</span> lifters selected</div>
-        <button class="btn btn-danger btn-sm" onclick="deleteSelectedLifters()">🗑️ Delete Selected</button>
+      <div class="card" id="bulkActionsBar" style="display:none;margin-bottom:16px;background:var(--bg-secondary);border:1px solid var(--accent);position:sticky;top:10px;z-index:100;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="font-weight:700;color:var(--accent)"><span id="selectedCount">0</span> Selected</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:0.8rem;color:var(--text-secondary)">Move to Flight:</label>
+          <select id="bulkFlightSelect" onchange="bulkUpdateFlight(this.value)" style="background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:4px 8px;border-radius:4px;">
+            <option value="">— Choose —</option>
+            <option value="A">Flight A</option>
+            <option value="B">Flight B</option>
+            <option value="C">Flight C</option>
+            <option value="D">Flight D</option>
+            <option value="E">Flight E</option>
+          </select>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-outline" style="border-color:var(--danger);color:var(--danger)" onclick="deleteSelectedLifters()">🗑 Delete Selected</button>
+          <button class="btn btn-link" onclick="clearSelection()">Cancel</button>
+        </div>
       </div>
+    </div>
       <div id="liftersContainer">
         <div class="lifter-row header">
           <div style="display:flex;justify-content:center"><input type="checkbox" id="selectAllLifters" onchange="toggleSelectAll(this.checked)"></div>
@@ -543,15 +559,29 @@
     }
 
     async function deleteSelectedLifters() {
-      const ids = Array.from(selectedLifterIds);
-      if (!confirm(`Are you sure you want to delete ${ids.length} selected lifters?`)) return;
+      if (selectedLifterIds.size === 0) return;
+      if (!confirm(`Are you sure you want to delete ${selectedLifterIds.size} selected lifters?`)) return;
       try {
-        await API.deleteLiftersBulk({ ids });
+        await API.deleteLiftersBulk({ ids: Array.from(selectedLifterIds) });
+        showToast(`Deleted ${selectedLifterIds.size} lifters`);
         selectedLifterIds.clear();
-        updateBulkUI();
         await loadLifters();
-        showToast(`Deleted ${ids.length} lifters`);
-      } catch (err) { showToast(err.message, 'error'); }
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function bulkUpdateFlight(flight) {
+      if (!flight || selectedLifterIds.size === 0) return;
+      try {
+        await API.updateLiftersBulk({ ids: Array.from(selectedLifterIds), flight });
+        showToast(`Moved ${selectedLifterIds.size} lifters to Flight ${flight}`);
+        document.getElementById('bulkFlightSelect').value = '';
+        selectedLifterIds.clear();
+        await loadLifters();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
     }
 
     async function clearAllLifters() {
