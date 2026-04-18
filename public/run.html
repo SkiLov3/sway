@@ -246,6 +246,7 @@
         socketListenersRegistered = true;
         socket.connect();
 
+        socket.on('meet_updated', () => loadOrder());
         socket.on('attempt_updated', () => loadOrder());
         socket.on('decision_made', (data) => {
           loadOrder();

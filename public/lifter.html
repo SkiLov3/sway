@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifter Dashboard — SWAY</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { background-color: var(--bg-primary); }
+    .lifter-header { background: var(--bg-secondary); padding: 16px; border-bottom: 2px solid var(--border-color); position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .lifter-header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    
+    .current-card { background: var(--bg-tertiary); padding: 16px; border-radius: 8px; border: 1px solid var(--accent-primary); text-align: center; margin-bottom: 12px; box-shadow: 0 0 15px rgba(231,76,60,0.2); }
+    .current-label { font-size: 0.75rem; color: var(--accent-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; font-weight: 700; }
+    .current-name { font-size: 1.8rem; font-weight: 900; color: var(--text-primary); font-family: 'Outfit'; line-height: 1.2; word-break: break-word; }
+    .current-weight { font-size: 1.2rem; color: var(--text-secondary); margin-top: 4px; }
+    .current-attempt { font-size: 1rem; color: var(--accent-secondary); margin-top: 4px; font-weight: 700; }
+    
+    .deck-container { display: flex; gap: 8px; }
+    .deck-card { flex: 1; background: var(--bg-tertiary); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center; }
+    .deck-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .deck-name { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .view-tabs { display: flex; background: var(--bg-tertiary); border-radius: 8px; overflow: hidden; margin-top: 16px; border: 1px solid var(--border-color); }
+    .view-tab { flex: 1; padding: 12px; text-align: center; font-family: 'Roboto Condensed'; font-weight: 700; text-transform: uppercase; font-size: 0.9rem; cursor: pointer; color: var(--text-muted); background: transparent; border: none; transition: 0.2s; }
+    .view-tab.active { background: var(--accent-primary); color: #fff; }
+    
+    .pane { display: none; padding: 16px; }
+    .pane.active { display: block; }
+    
+    .table-container { overflow-x: auto; background: var(--bg-secondary); border-radius: 8px; box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { position: sticky; top: 0; background: var(--bg-tertiary); color: var(--text-muted); padding: 10px; text-align: left; text-transform: uppercase; font-size: 0.75rem; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+    td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+    tr:last-child td { border-bottom: none; }
+    tr.active-row { background: rgba(231,76,60,0.1); border-left: 3px solid var(--accent-primary); }
+    
+    .lift-tabs, .flight-tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+    .lift-tab, .flight-tab { flex: 1; min-width: 60px; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-secondary); cursor: pointer; text-align: center; font-family: 'Roboto Condensed'; font-weight: 700; }
+    .lift-tab.active, .flight-tab.active { background: var(--accent-secondary); color: var(--bg-primary); border-color: var(--accent-secondary); }
+    
+    .attempt-cell { font-family: 'Roboto Condensed'; font-weight: 700; }
+    .weight-good { color: #2ecc71; }
+    .weight-bad { color: #e74c3c; text-decoration: line-through; }
+    .weight-pending { color: var(--text-secondary); }
+
+    .division-header { background: var(--bg-tertiary); font-weight: 700; color: var(--accent-secondary); }
+    .forecasted-badge { display: inline-block; padding: 2px 8px; background: rgba(241,196,15,0.2); color: #f1c40f; border-radius: 10px; font-size: 0.7rem; font-weight: 700; margin-left: 6px; }
+  </style>
+</head>
+<body>
+  
+  <div class="lifter-header">
+    <div class="lifter-header-top">
+      <div style="font-family:'Outfit'; font-weight:900; font-size:1.2rem; color:var(--text-primary)">
+        <span id="statusDot" class="status-dot offline" style="width:8px;height:8px"></span>
+        <span id="meetTitle">Loading Meet...</span>
+      </div>
+      <div>
+        <span class="badge badge-running" id="statusBadge" style="display:none">LIVE</span>
+      </div>
+    </div>
+    
+    <div class="current-card">
+      <div class="current-label">Currently Lifting</div>
+      <div class="current-name" id="uiCurrentName">—</div>
+      <div class="current-weight" id="uiCurrentWeight"></div>
+      <div class="current-attempt" id="uiCurrentAttempt"></div>
+    </div>
+    
+    <div class="deck-container">
+      <div class="deck-card">
+        <div class="deck-label">On Deck</div>
+        <div class="deck-name" id="uiOnDeck">—</div>
+      </div>
+      <div class="deck-card">
+        <div class="deck-label">In the Hole</div>
+        <div class="deck-name" id="uiInHole">—</div>
+      </div>
+      <div class="deck-card">
+        <div class="deck-label">Deep Hole</div>
+        <div class="deck-name" id="uiDeepHole">—</div>
+      </div>
+    </div>
+    
+    <div class="view-tabs">
+      <button class="view-tab active" onclick="switchView('order')">Lifting Order</button>
+      <button class="view-tab" onclick="switchView('results')">Results</button>
+    </div>
+  </div>
+
+  <main style="max-width: 1000px; margin: 0 auto;">
+    
+    <!-- LIFTING ORDER PANE -->
+    <div id="pane-order" class="pane active">
+      <div class="lift-tabs">
+        <button class="lift-tab active" data-lift="squat" onclick="switchLift('squat')">Squat</button>
+        <button class="lift-tab" data-lift="bench" onclick="switchLift('bench')">Bench</button>
+        <button class="lift-tab" data-lift="deadlift" onclick="switchLift('deadlift')">Deadlift</button>
+      </div>
+      
+      <div class="flight-tabs" id="flightTabs">
+        <!-- Flights injected here -->
+      </div>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Team</th>
+              <th>Att 1</th>
+              <th>Att 2</th>
+              <th>Att 3</th>
+            </tr>
+          </thead>
+          <tbody id="orderBody">
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">Loading order...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- RESULTS PANE -->
+    <div id="pane-results" class="pane">
+      <div class="flex-between" style="margin-bottom:12px; align-items:center;">
+        <h3 style="margin:0">Live Results</h3>
+        <button class="btn btn-outline btn-sm" id="forecastedBtn" onclick="toggleForecasted()">Show Forecasted</button>
+      </div>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Team</th>
+              <th>Place</th>
+              <th id="headerBodyWgt">BW</th>
+              <th>SQ 1</th>
+              <th>SQ 2</th>
+              <th>SQ 3</th>
+              <th>BP 1</th>
+              <th>BP 2</th>
+              <th>BP 3</th>
+              <th>DL 1</th>
+              <th>DL 2</th>
+              <th>DL 3</th>
+              <th id="headerTotal">Total</th>
+              <th>DOTS</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody">
+            <tr><td colspan="15" style="text-align:center;padding:20px;color:var(--text-muted)">Loading results...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const meetId = getParam('meetId');
+    if (!meetId) document.body.innerHTML = '<h2 style="padding:20px;text-align:center;">Meeting ID required</h2>';
+    
+    let meetUnits = 'kg';
+    let currentLift = 'squat';
+    let currentFlight = 'A';
+    let liftingOrder = [];
+    let lifters = [];
+    
+    // Results
+    let resultsData = null;
+    let isForecasted = false;
+    
+    // State Tracking
+    let meetState = null;
+
+    async function init() {
+      try {
+        const meet = await API.getMeet(meetId);
+        meetUnits = (meet.units === 'lbs' ? 'lb' : 'kg');
+        document.getElementById('meetTitle').textContent = meet.name;
+        document.title = `${meet.name} — Lifter Dashboard`;
+        
+        document.getElementById('headerBodyWgt').textContent = `BW (${meetUnits})`;
+        document.getElementById('headerTotal').textContent = `Total (${meetUnits})`;
+      } catch (e) {
+        console.error("Meet load error", e);
+      }
+      
+      await loadState();
+      
+      // Setup WebSockets
+      socket.connect();
+      socket.on('meet_updated', () => { init(); });
+      socket.on('state_changed', () => { loadState(); });
+      socket.on('attempt_updated', () => { loadState(); });
+      socket.on('decision_made', () => { loadState(); });
+      socket.on('connected', updateStatusUI);
+      socket.on('disconnected', updateStatusUI);
+    }
+
+    function updateStatusUI() {
+      const dot = document.getElementById('statusDot');
+      if (socket.connected) {
+        dot.className = 'status-dot online';
+      } else {
+        dot.className = 'status-dot offline';
+      }
+    }
+
+    async function loadState() {
+      try {
+        const [state, dbLifters, results] = await Promise.all([
+          API.getMeetState(meetId),
+          API.getLifters(meetId),
+          API.getResults(meetId, isForecasted)
+        ]);
+        
+        meetState = state || {};
+        lifters = dbLifters;
+        resultsData = results;
+        
+        // Update the live flight tabs with active flights
+        renderFlightTabs();
+        
+        // Fetch real-time active queue for the banner
+        let activeQueue = [];
+        try {
+          // platform 1 default for now
+          activeQueue = await API.getLiftingOrder(meetId, 1, meetState.current_flight || 'A', meetState.current_lift_type || 'squat', meetState.current_attempt_number || 1);
+        } catch(e) {}
+        
+        // Update top banner using current state
+        updateTopBanner(activeQueue);
+        
+        // Fetch order for the current user's UI tabs
+        try {
+          liftingOrder = await API.getLiftingOrder(meetId, 1, currentFlight, currentLift, 1);
+        } catch(e) {
+          liftingOrder = [];
+        }
+        
+        // Render Order and Results
+        renderOrder();
+        renderResults();
+        
+        // Show LIVE badge if running
+        document.getElementById('statusBadge').style.display = meetState.clock_running ? 'inline-block' : 'none';
+        
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    function switchView(viewName) {
+      document.querySelectorAll('.view-tab').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.pane').forEach(el => el.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(`pane-${viewName}`).classList.add('active');
+    }
+    
+    function switchLift(lift) {
+      currentLift = lift;
+      document.querySelectorAll('.lift-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lift === lift);
+      });
+      loadState();
+    }
+    
+    function switchFlight(f) {
+      currentFlight = f;
+      document.querySelectorAll('.flight-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.flight === f);
+      });
+      loadState();
+    }
+    
+    function renderFlightTabs() {
+      const flightsSet = new Set(lifters.map(l => l.flight));
+      const activeFlights = Array.from(flightsSet).sort();
+      if(activeFlights.length === 0) activeFlights.push('A');
+      
+      if (!activeFlights.includes(currentFlight)) {
+        currentFlight = activeFlights[0];
+      }
+      
+      const tabGroup = document.getElementById('flightTabs');
+      tabGroup.innerHTML = activeFlights.map(f => 
+        `<button class="flight-tab ${f === currentFlight ? 'active' : ''}" data-flight="${f}" onclick="switchFlight('${f}')">Flight ${f}</button>`
+      ).join('');
+    }
+
+    function updateTopBanner(activeQueue) {
+      if (!meetState || !meetState.current_lifter_id || !activeQueue.length) {
+        setEmptyBanner();
+        return;
+      }
+      
+      const currentLifterIdx = activeQueue.findIndex(l => l.id === meetState.current_lifter_id);
+      
+      if (currentLifterIdx >= 0) {
+        const cur = activeQueue[currentLifterIdx];
+        const att = cur.attempts.find(a => a.lift_type === meetState.current_lift_type && a.attempt_number === meetState.current_attempt_number);
+        
+        document.getElementById('uiCurrentName').textContent = cur.name;
+        document.getElementById('uiCurrentWeight').textContent = att && att.weight ? `${att.weight} ${meetUnits}` : '—';
+        document.getElementById('uiCurrentAttempt').textContent = `${LIFT_NAMES[meetState.current_lift_type] || meetState.current_lift_type} - Attempt ${meetState.current_attempt_number}`;
+        
+        const onDeck = activeQueue[currentLifterIdx + 1];
+        const inHole = activeQueue[currentLifterIdx + 2];
+        const deepHole = activeQueue[currentLifterIdx + 3];
+        
+        document.getElementById('uiOnDeck').textContent = onDeck ? onDeck.name : '—';
+        document.getElementById('uiInHole').textContent = inHole ? inHole.name : '—';
+        document.getElementById('uiDeepHole').textContent = deepHole ? deepHole.name : '—';
+        
+      } else {
+        setEmptyBanner();
+      }
+    }
+    
+    function setEmptyBanner() {
+      document.getElementById('uiCurrentName').textContent = '—';
+      document.getElementById('uiCurrentWeight').textContent = '';
+      document.getElementById('uiCurrentAttempt').textContent = 'Platform Idle';
+      document.getElementById('uiOnDeck').textContent = '—';
+      document.getElementById('uiInHole').textContent = '—';
+      document.getElementById('uiDeepHole').textContent = '—';
+    }
+
+    function renderOrder() {
+      const tbody = document.getElementById('orderBody');
+      const curId = meetState?.current_lifter_id;
+      
+      if (liftingOrder.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">No lifters in Flight ${currentFlight}</td></tr>`;
+        return;
+      }
+      
+      tbody.innerHTML = liftingOrder.map((l, i) => {
+        const isActive = l.id === curId && meetState?.current_lift_type === currentLift && meetState?.current_flight === currentFlight;
+        
+        let attemptsHtml = '';
+        for (let num = 1; num <= 3; num++) {
+          const a = l.attempts.find(att => att.lift_type === currentLift && att.attempt_number === num);
+          let wClass = 'weight-pending';
+          if (a && a.result === 'good') wClass = 'weight-good';
+          if (a && a.result === 'no_good') wClass = 'weight-bad';
+          const wText = a && a.weight ? a.weight : '';
+          attemptsHtml += `<td class="attempt-cell ${wClass}">${wText}</td>`;
+        }
+        
+        return `
+          <tr class="${isActive ? 'active-row' : ''}">
+            <td style="color:var(--text-muted)">${l.lot_number || (i+1)}</td>
+            <td style="font-weight:700">${escapeHtml(l.name)}</td>
+            <td style="color:var(--text-secondary);font-size:0.75rem">${escapeHtml(l.team || '')}</td>
+            ${attemptsHtml}
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    function toggleForecasted() {
+      isForecasted = !isForecasted;
+      const btn = document.getElementById('forecastedBtn');
+      if (isForecasted) {
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-outline');
+        btn.textContent = 'Hide Forecasted';
+      } else {
+        btn.classList.add('btn-outline');
+        btn.classList.remove('btn-primary');
+        btn.textContent = 'Show Forecasted';
+      }
+      loadState();
+    }
+
+    function renderResults() {
+      const tbody = document.getElementById('resultsBody');
+      if (!resultsData || resultsData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align:center;padding:30px;color:var(--text-muted)">No results available.</td></tr>`;
+        return;
+      }
+
+      // Group by division exactly as results.html does
+      const byDiv = {};
+      resultsData.forEach(r => {
+        const divName = r.lifter.division_name || 'Open';
+        if (!byDiv[divName]) byDiv[divName] = [];
+        byDiv[divName].push(r);
+      });
+
+      let html = '';
+      for (const [divName, lifterArray] of Object.entries(byDiv)) {
+        html += `<tr class="division-header"><td colspan="15">${escapeHtml(divName)}</td></tr>`;
+        
+        lifterArray.forEach((r, idx) => {
+          let attemptsRow = '';
+          ['squat', 'bench', 'deadlift'].forEach(type => {
+            for (let num=1; num<=3; num++) {
+              const att = r.attempts.find(a => a.lift_type === type && a.attempt_number === num);
+              if (!att || !att.weight) {
+                attemptsRow += `<td class="attempt-cell"></td>`;
+              } else {
+                let cls = 'weight-pending';
+                if (att.result === 'good') cls = 'weight-good';
+                if (att.result === 'no_good') cls = 'weight-bad';
+                
+                let weightLabel = att.weight;
+                if (isForecasted && att.result === 'pending' && Array.isArray(r.projected_attempts) && r.projected_attempts.some(a => a.id === att.id)) {
+                  weightLabel += ' <span style="font-size:0.6rem;opacity:0.6">Proj</span>';
+                  cls = 'weight-pending'; 
+                }
+                
+                attemptsRow += `<td class="attempt-cell ${cls}">${weightLabel}</td>`;
+              }
+            }
+          });
+
+          const forecastedHtml = (isForecasted && r.total_projected) ? `<span class="forecasted-badge">PROJ</span>` : '';
+
+          html += `
+            <tr>
+              <td style="font-weight:700; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.lifter.name)}</td>
+              <td style="font-size:0.75rem;color:var(--text-secondary); max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.lifter.team || '')}</td>
+              <td style="font-weight:700;color:var(--accent-secondary)">${r.place || '—'}</td>
+              <td style="color:var(--text-muted)">${r.lifter.body_weight || ''}</td>
+              ${attemptsRow}
+              <td style="font-weight:900;font-size:1.05rem">${r.total > 0 ? r.total : '—'} ${forecastedHtml}</td>
+              <td style="font-family:'Roboto Condensed'">${r.dots ? r.dots.toFixed(2) : '—'}</td>
+            </tr>
+          `;
+        });
+      }
+
+      tbody.innerHTML = html;
+    }
+
+    init();
+  </script>
+</body>
+</html>

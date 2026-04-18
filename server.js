@@ -75,6 +75,18 @@ app.get('/run/:code', (req, res) => {
   }
 });
 
+app.get('/lifter/:code', (req, res) => {
+  try {
+    const db = getDb();
+    const code = req.params.code.toUpperCase();
+    const meet = db.prepare("SELECT id FROM meets WHERE short_code = ? AND short_code != ''").get(code);
+    if (!meet) return res.status(404).send(`<h2>Meet code "${code}" not found.</h2><p>Ask your meet director for the correct code.</p>`);
+    res.redirect(`/lifter.html?meetId=${meet.id}`);
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+});
+
 app.get('/r/:code', (req, res) => {
   try {
     const db = getDb();

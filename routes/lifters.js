@@ -160,6 +160,12 @@ router.put('/:id', (req, res) => {
     );
 
     res.json(db.prepare('SELECT * FROM lifters WHERE id = ?').get(req.params.id));
+    
+    // Broadcast generic meet update event so clients refresh their lifter cache
+    const broadcast = req.app.get('broadcast');
+    if (broadcast) {
+      broadcast({ type: 'meet_updated', data: { meetId: lifter.meet_id } });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
