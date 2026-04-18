@@ -213,7 +213,10 @@ router.get('/order/:meetId/:platform/:flight/:liftType/:attemptNumber', (req, re
       return lotA - lotB;
     });
 
-    res.json(enriched);
+    // Filter out lifters who are not lifting in this round (weight is 0 or null)
+    const activeOrder = enriched.filter(l => (parseFloat(l.currentWeight) || 0) > 0);
+
+    res.json(activeOrder);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

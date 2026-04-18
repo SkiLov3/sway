@@ -316,6 +316,15 @@
           <button class="btn btn-outline" onclick="applyPreset('uspa_mens_lb')">USPA Men's (lb)</button>
           <button class="btn btn-outline" onclick="applyPreset('uspa_womens_lb')">USPA Women's (lb)</button>
           <button class="btn btn-outline" onclick="applyPreset('generic_lb')">Generic LB Classes</button>
+
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;text-transform:uppercase;letter-spacing:1px">Partial / Single Lift</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn btn-outline btn-sm" onclick="applyPreset('push_pull_lb')">Push/Pull (lb)</button>
+            <button class="btn btn-outline btn-sm" onclick="applyPreset('squat_pull_lb')">Squat/Pull (lb)</button>
+            <button class="btn btn-outline btn-sm" onclick="applyPreset('squat_only_lb')">Squat Only (lb)</button>
+            <button class="btn btn-outline btn-sm" onclick="applyPreset('bench_only_lb')">Bench Only (lb)</button>
+            <button class="btn btn-outline btn-sm" onclick="applyPreset('dead_only_lb')">Deadlift Only (lb)</button>
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
@@ -330,7 +339,13 @@
       ipf_womens: { name: "Women's Open", wcs: ['43', '47', '52', '57', '63', '69', '76', '84', '84+'], unit: 'kg' },
       uspa_mens_lb: { name: "Men's Open (lb)", wcs: ['114', '132', '148', '165', '181', '198', '220', '242', '275', '308', '308+'], unit: 'lb' },
       uspa_womens_lb: { name: "Women's Open (lb)", wcs: ['97', '105', '114', '123', '132', '148', '165', '181', '198', '198+'], unit: 'lb' },
-      generic_lb: { name: "Powerlifting (lb)", wcs: ['135', '155', '175', '195', '215', '235', '255', '275', '275+'], unit: 'lb' }
+      generic_lb: { name: "Powerlifting (lb)", wcs: ['135', '155', '175', '195', '215', '235', '255', '275', '275+'], unit: 'lb' },
+      // Partial Meets
+      push_pull_lb: { name: "Push/Pull (Bench/Dead)", wcs: ['148', '165', '181', '198', '220', '242', '275', '308', '308+'], unit: 'lb' },
+      squat_pull_lb: { name: "Squat/Pull (Squat/Dead)", wcs: ['148', '165', '181', '198', '220', '242', '275', '308', '308+'], unit: 'lb' },
+      squat_only_lb: { name: "Squat Only", wcs: ['148', '165', '181', '198', '220', '242', '275', '308', '308+'], unit: 'lb' },
+      bench_only_lb: { name: "Bench Only", wcs: ['148', '165', '181', '198', '220', '242', '275', '308', '308+'], unit: 'lb' },
+      dead_only_lb: { name: "Deadlift Only", wcs: ['148', '165', '181', '198', '220', '242', '275', '308', '308+'], unit: 'lb' }
     };
 
     async function applyPreset(key) {

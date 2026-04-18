@@ -383,9 +383,8 @@ router.get('/:id/results', (req, res) => {
       const bestBench = getBest('bench');
       const bestDeadlift = getBest('deadlift');
       
-      // Total is only valid if we have at least one successful (or forecasted) lift in each category
-      const total = (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) 
-        ? bestSquat + bestBench + bestDeadlift : 0;
+      // Total is the sum of any successful (or forecasted) lifts
+      const total = bestSquat + bestBench + bestDeadlift;
         
       const dots = calculateDOTS(total, lifter.body_weight, lifter.gender, meet.units || 'kg');
 
