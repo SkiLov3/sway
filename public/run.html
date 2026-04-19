@@ -249,28 +249,58 @@
         socket.on('meet_updated', () => loadOrder());
         socket.on('attempt_updated', () => loadOrder());
         socket.on('decision_made', async (data) => {
-          loadOrder();
-          if (data && (data.result === 'good' || data.result === 'no_good')) {
-            timer.reset(60);
-            const btn = document.getElementById('timerToggleBtn');
-            if (btn) {
-              btn.innerHTML = '▶ Start';
-              btn.className = 'btn btn-success btn-sm';
+          setTimeout(async () => {
+            // Load latest data from DB to reflect the new result (good/no_good)
+            liftingOrder = await API.getLiftingOrder(meetId, platform, currentFlight, currentLift, currentAttemptNum);
+            renderOrder();
+
+            if (data && (data.result === 'good' || data.result === 'no_good')) {
+              timer.reset(60);
+              const btn = document.getElementById('timerToggleBtn');
+              if (btn) { btn.innerHTML = '▶ Start'; btn.className = 'btn btn-success btn-sm'; }
+              
+              const currentLifter = liftingOrder[currentLifterIdx];
+              // Check if the decision that just came in was for our currently selected lifter
+              if (currentLifter && data.lifterId === currentLifter.id) {
+                // Determine the index of the NEXT person who needs to lift
+                const nextActiveIdx = liftingOrder.findIndex((l, idx) => {
+                  if (idx <= currentLifterIdx) return false; // Must be after current
+                  const att = l.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);
+                  return att && att.weight && att.result === 'pending';
+                });
+
+                if (advanceTimeout) clearTimeout(advanceTimeout);
+                let delayMs = 15000;
+                try {
+                  const m = await API.getMeet(meetId);
+                  delayMs = (m.decision_display_seconds || 15) * 1000;
+                } catch(e) {}
+
+                if (nextActiveIdx >= 0) {
+                  // Update local index so we know who is active now
+                  currentLifterIdx = nextActiveIdx; 
+                  
+                  // SYNC DB IMMEDIATELY to move the TV/Referee to the next person
+                  const nextLifter = liftingOrder[nextActiveIdx];
+                  await API.updateMeetState(meetId, {
+                    current_lift_type: currentLift,
+                    current_attempt_number: currentAttemptNum,
+                    current_flight: currentFlight,
+                    current_lifter_id: nextLifter.id
+                  });
+
+                  advanceTimeout = setTimeout(() => {
+                    updateCurrentLifter(false); // Visual highlight jump
+                  }, delayMs);
+                } else {
+                  // NO MORE LIFTERS in this flight/attempt - must advance round
+                  advanceTimeout = setTimeout(() => {
+                    advanceRound();
+                  }, delayMs);
+                }
+              }
             }
-            
-            // Auto-advance mechanism tied exactly to the TV delay
-            if (advanceTimeout) clearTimeout(advanceTimeout);
-            
-            let delayMs = 15000;
-            try {
-              const m = await API.getMeet(meetId);
-              delayMs = (m.decision_display_seconds || 15) * 1000;
-            } catch(e) {}
-            
-            advanceTimeout = setTimeout(() => {
-              advanceLifter();
-            }, delayMs);
-          }
+          }, 500);
         });
 
         socket.on('reconnected', () => {
@@ -361,13 +391,24 @@
         document.getElementById(`ref${n}Red`).classList.remove('active');
       });
 
-      // Find the first lifter who hasn't completed their current attempt
-      const pending = liftingOrder.findIndex(l => {
+      // Find the first lifter who is still 'pending'
+      const activeIdx = liftingOrder.findIndex(l => {
         const att = l.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);
         return att && att.weight && att.result === 'pending';
       });
       
-      currentLifterIdx = pending >= 0 ? pending : 0;
+      // If we don't have a selection, or our selection is already finished,
+      // move to the next pending lifter.
+      const current = liftingOrder[currentLifterIdx];
+      const currentAtt = current?.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);
+      const currentIsDone = currentAtt && (currentAtt.result === 'good' || currentAtt.result === 'no_good');
+
+      if (currentIsDone && activeIdx >= 0) {
+        currentLifterIdx = activeIdx;
+      } else if (!current && activeIdx >= 0) {
+        currentLifterIdx = activeIdx;
+      }
+
       const lifter = liftingOrder[currentLifterIdx];
       
       if (lifter) {
@@ -392,7 +433,7 @@
         let showRackBox = !!rackLabel && (safeRackHeight !== '');
         
         if (currentLift === 'squat' || currentLift === 'bench') {
-            showRackBox = true; // Always show config block for squat/bench because IN/OUT and Block configs exist
+            showRackBox = true; 
         }
 
         if (showRackBox) {
@@ -411,7 +452,6 @@
           rackEl.style.display = 'none';
         }
 
-        
         // Update local referee lights for the Chief Table
         [1,2,3].forEach(n => {
           const refVal = att?.[`ref${n}`];
@@ -419,7 +459,6 @@
         });
 
         if (broadcastState) {
-          // Save state
           API.updateMeetState(meetId, {
             current_lift_type: currentLift,
             current_attempt_number: currentAttemptNum,
@@ -457,7 +496,7 @@
     function selectLifter(idx) {
       if (advanceTimeout) clearTimeout(advanceTimeout);
       currentLifterIdx = idx;
-      updateCurrentLifter();
+      updateCurrentLifter(true);
     }
 
     async function setWeight(lifterId, liftType, num, value) {
@@ -507,14 +546,23 @@
     }
 
     // Referee inline
-    function refVote(refNum, decision) {
+    async function refVote(refNum, decision) {
+      const lifter = liftingOrder[currentLifterIdx];
+      if (!lifter) return;
+
       refDecisions[`ref${refNum}`] = decision;
       // Update button styles
       document.getElementById(`ref${refNum}White`).classList.toggle('active', decision === 'white');
       document.getElementById(`ref${refNum}Red`).classList.toggle('active', decision === 'red');
       // Update light preview
       const light = document.getElementById(`refSmall${refNum}`);
-      light.className = `ref-light ${decision || 'waiting'}`;
+      if (light) light.className = `ref-light ${decision || 'waiting'}`;
+
+      // Broadcast individual light to TV immediately
+      try {
+        const refKey = `ref${refNum}`;
+        await API.recordDecision(lifter.id, currentLift, currentAttemptNum, { [refKey]: decision });
+      } catch (err) { console.error('Failed to sync live light:', err); }
     }
 
     let advanceTimeout = null;
@@ -531,56 +579,94 @@
       } catch (err) { showToast(err.message, 'error'); }
     }
 
-    function clearDecision() {
+    async function clearDecision() {
+      const lifter = liftingOrder[currentLifterIdx];
       refDecisions = { ref1: '', ref2: '', ref3: '' };
+      
+      // Update UI
       [1,2,3].forEach(n => {
         document.getElementById(`ref${n}White`).classList.remove('active');
         document.getElementById(`ref${n}Red`).classList.remove('active');
-        document.getElementById(`refSmall${n}`).className = 'ref-light waiting';
+        const light = document.getElementById(`refSmall${n}`);
+        if (light) light.className = 'ref-light waiting';
       });
+
+      // Sync to DB/TV
+      if (lifter) {
+        try {
+          await API.recordDecision(lifter.id, currentLift, currentAttemptNum, refDecisions);
+        } catch (e) { console.error('Failed to clear decision in DB:', e); }
+      }
     }
 
     function advanceLifter() {
       if (advanceTimeout) clearTimeout(advanceTimeout);
-      if (currentLifterIdx < liftingOrder.length - 1) {
-        currentLifterIdx++;
-        updateCurrentLifter();
-        resetTimer();
+      
+      // Determine if we should move to next pending or just increment index
+      const current = liftingOrder[currentLifterIdx];
+      const att = current?.attempts.find(a => a.lift_type === currentLift && a.attempt_number === currentAttemptNum);
+      const isDone = att && (att.result === 'good' || att.result === 'no_good');
+
+      if (isDone) {
+        // Find next pending
+        const nextPendingIdx = liftingOrder.findIndex((l, i) => {
+          if (i <= currentLifterIdx) return false;
+          const a = l.attempts.find(att => att.lift_type === currentLift && att.attempt_number === currentAttemptNum);
+          return a && a.weight && a.result === 'pending';
+        });
+
+        if (nextPendingIdx >= 0) {
+          currentLifterIdx = nextPendingIdx;
+          updateCurrentLifter(true);
+        } else {
+          advanceRound();
+        }
       } else {
-        // End of flight, go to next flight/round
-        advanceRound();
+        // Manual "Next" - just go to the very next person in list
+        if (currentLifterIdx < liftingOrder.length - 1) {
+          currentLifterIdx++;
+          updateCurrentLifter(true);
+        } else {
+          advanceRound();
+        }
       }
+      resetTimer();
     }
 
     function advanceRound() {
       if (advanceTimeout) clearTimeout(advanceTimeout);
+      
+      let changed = false;
+      
       // Execute Attempt 1, 2, 3 for the current flight before moving to the next flight
       if (currentAttemptNum < 3) {
         currentAttemptNum++;
+        changed = true;
       } else {
         const activeIdx = activeFlights.indexOf(currentFlight);
         if (activeIdx >= 0 && activeIdx < activeFlights.length - 1) {
           // Move to next flight, reset attempt to 1
           currentFlight = activeFlights[activeIdx + 1];
           currentAttemptNum = 1;
+          changed = true;
         } else {
           // Last flight, last attempt -> Move to Next Lift
           currentFlight = activeFlights[0];
           currentAttemptNum = 1;
           
-          if (currentLift === 'squat') currentLift = 'bench';
-          else if (currentLift === 'bench') currentLift = 'deadlift';
-          // If deadlift, stay or reset
+          if (currentLift === 'squat') { currentLift = 'bench'; changed = true; }
+          else if (currentLift === 'bench') { currentLift = 'deadlift'; changed = true; }
         }
       }
       
-      // Update UI
-      document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === currentLift));
-      updateFlightTabsUI();
-      
-      currentLifterIdx = 0;
-      loadOrder(true);
-      resetTimer();
+      if (changed) {
+        currentLifterIdx = 0;
+        document.querySelectorAll('.lift-tab').forEach(t => t.classList.toggle('active', t.dataset.lift === currentLift));
+        updateFlightTabsUI();
+        loadOrder(true);
+        resetTimer();
+        showToast(`Advanced to ${LIFT_NAMES[currentLift]} - Attempt ${currentAttemptNum} (Flight ${currentFlight})`);
+      }
     }
     
     function renderFlightTabs() {

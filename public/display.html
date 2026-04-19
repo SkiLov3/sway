@@ -302,27 +302,28 @@
 
         socket.on('decision_made', (data) => {
           if (data.meetId !== meetId) return;
-          if (data.lifterId && data.lifterId !== displayLifterId) return;
           
           // Update individual ref lights as each vote comes in
-          // Use 'in' to detect the property even if it's an empty string
           if ('ref1' in data && data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
           if ('ref2' in data && data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
           if ('ref3' in data && data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
           
-          // Final decision: stop the clock, flash result, reload state after banner expires
+          // Final decision: stop the clock, flash result
           if (data.result && (data.result === 'good' || data.result === 'no_good')) {
             displayTimer.stop();
             displayTimer.reset(60);
-            showDecisionFlash(data.result);
             
-            isFlashing = true; // Lock the display on this lifter
-            
-            const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
-            setTimeout(() => {
-              isFlashing = false;
-              loadState(); // Now it's safe to show the next lifter
-            }, durationMs);
+            // Only show banner if this decision was for the lifter we are actually looking at
+            if (data.lifterId === displayLifterId) {
+              isFlashing = true; 
+              showDecisionFlash(data.result);
+              
+              const durationMs = (window.decisionDisplaySeconds || 15) * 1000;
+              setTimeout(() => {
+                isFlashing = false;
+                loadState(); // Refresh after banner
+              }, durationMs);
+            }
           }
         });
 

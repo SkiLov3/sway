@@ -59,7 +59,36 @@ npm test
 - **Lifters API**: Verifies lifter registration, input validation, and CSV import logic.
 - **Attempts API**: Tests real-time weight setting, referee voting, and majority-rule results.
 
+## How to Run a Meet
+
+Sway is designed for a seamless meet-day flow. Follow these steps to set up and execute your competition:
+
+### 1. Initial Setup
+- **Create Your Meet**: On the home screen, click "Create Meet." Set the name, date, federation, and units (KG or LBS).
+- **Configure Divisions**: Enter the "Setup" view for your meet. Add divisions and weight classes manually or use the built-in presets (USAPL, USPA, etc.).
+- **Import Lifters**: Use the "Import CSV" feature to bulk-add lifters. Ensure your CSV matches the template (available for download in the Setup view).
+- **Assign Rack Heights**: Input rack heights and safety settings for each lifter in the Setup view so they appear on the TV display during the meet.
+
+### 2. Meet Execution (The "Run Board")
+The **Run Meet** view is the command center for the meet director:
+- **Lifting Order**: Sway automatically sorts lifters by attempt weight and lot number (the standard powerlifting order).
+- **Managing Attempts**: Enter attempt weights as lifters call them. Click a lifter to select them as the "Active" lifter.
+- **Referee Decisions**: As referees cast votes from their devices, the lights on the Run Board and TV Display will update in real-time. The director can also manually input decisions from the board.
+- **Auto-Progression**: When a decision is finalized (Good/No Lift), Sway will automatically move the TV display to the next lifter after a short delay (default 15s). The Run board will visually advance once the TV banner clears.
+- **Flight & Round Transitions**: Use the "Next Round" quick action to move from Attempt 1 to Attempt 2, or to transition between flights (e.g., Flight A to Flight B).
+
+### 3. Display & Referee Setup
+- **TV Display**: Connect a laptop to a TV via HDMI and open the **Display View** in full-screen. It shows the current lifter, animated plate loader, competition timer, and referee lights.
+- **Referee Panels**: Referees can open the **Referee View** on their phones by navigating to the server's local IP. They select their position (Left, Head, or Right) and tap "Good Lift" or "No Lift" for each attempt.
+
+### 4. Real-Time Results
+- Access the **Results** page from any device. It updates live as each lift is recorded, showing current placings, totals, and DOTS points.
+
 ## Data Persistence
+
+Sway uses an SQLite database (`better-sqlite3`). Once the server is started, a `data/sway.db` file is automatically created. All meet configurations, lifter data, and attempt results are saved immediately. You can safely stop and restart your laptop, and your meet data will persist.
+
+## Deployment with Docker
 
 If you prefer using Docker to avoid installing Node.js:
 
@@ -70,15 +99,11 @@ If you prefer using Docker to avoid installing Node.js:
    ```
 2. Start the container:
    ```bash
-   docker-compose up -build
+   docker-compose up --build
    ```
 3. Open `http://localhost:3000` in your browser.
 
 *(Note: The database is persisted in the `./data` directory on the host when using Docker.)*
-
-## Data Persistence
-
-Sway uses an SQLite database (`better-sqlite3`). Once the server is started, a `data/sway.db` file is automatically created. All meet configurations, lifter data, and attempt results are saved immediately. You can safely stop and restart your laptop, and your meet data will persist.
 
 ## License
 

@@ -133,27 +133,17 @@
       }
     }
     
-    socket.on('current_lifter', (data) => {
+    socket.on('state_changed', (data) => {
       if (data.meetId !== meetId) return;
-      currentLifter = data.lifter;
-      currentLiftType = data.liftType;
-      currentAttemptNum = data.attemptNumber;
-      currentAttemptData = data.attempt;
-      
-      document.getElementById('refLifterName').textContent = data.lifter?.name || '—';
-      document.getElementById('refWeight').textContent = data.attempt?.weight ? `${data.attempt.weight} ${meetUnits}` : '—';
-      document.getElementById('refAttemptInfo').textContent = `${LIFT_NAMES[data.liftType] || ''} — Attempt ${data.attemptNumber}`;
+      init(); // Re-fetch data on state change
+    });
+    
+    socket.on('attempt_updated', (data) => {
+      if (data.meetId === meetId) init();
+    });
 
-      // Flight + Division + Weight Class context
-      const flight = data.flight ? `Flight ${data.flight}` : '';
-      const div = data.lifter?.division_name || '';
-      const wc = data.lifter?.weight_class_name || '';
-      const team = data.lifter?.team || '';
-      const divParts = [flight, div, wc].filter(Boolean);
-      document.getElementById('refLiftInfo').textContent = team;
-      document.getElementById('refDivisionInfo').textContent = divParts.join(' · ');
-      
-      updateButtonState();
+    socket.on('decision_made', (data) => {
+      if (data.meetId === meetId) init();
     });
 
     async function submitRefDecision(decision) {
