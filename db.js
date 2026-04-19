@@ -97,6 +97,7 @@ function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_lifters_meet_id ON lifters(meet_id);
+    CREATE INDEX IF NOT EXISTS idx_lifters_platform_flight ON lifters(meet_id, platform, flight);
 
     CREATE TABLE IF NOT EXISTS attempts (
       id TEXT PRIMARY KEY,
@@ -114,6 +115,7 @@ function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_attempts_lifter_id ON attempts(lifter_id);
+    CREATE INDEX IF NOT EXISTS idx_attempts_query ON attempts(lifter_id, lift_type, attempt_number);
 
     CREATE TABLE IF NOT EXISTS meet_state (
       meet_id TEXT PRIMARY KEY,

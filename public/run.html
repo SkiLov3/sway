@@ -187,14 +187,6 @@
     let activeFlights = ['A']; // Will be populated in init()
     let socketListenersRegistered = false; // Guard against duplicate socket listeners
 
-    function updateStatusUI() {
-      const dot = document.getElementById('statusDot');
-      if (dot) {
-        dot.className = `status-dot ${socket.connected ? 'online' : 'offline'}`;
-        dot.title = socket.connected ? 'Connected' : 'Disconnected';
-      }
-    }
-
     createSidebar(meetId, '', 'run');
 
     async function init() {

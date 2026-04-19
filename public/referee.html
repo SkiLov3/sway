@@ -124,14 +124,6 @@
         meetUnits = (m.units === 'lbs' ? 'lbs' : 'kg');
       } catch (e) {}
     }, 5000);
-
-    function updateStatusUI() {
-      const dot = document.getElementById('statusDot');
-      if (dot) {
-        dot.className = `status-dot ${socket.connected ? 'online' : 'offline'}`;
-        dot.title = socket.connected ? 'Connected' : 'Disconnected';
-      }
-    }
     
     socket.on('state_changed', (data) => {
       if (data.meetId !== meetId) return;

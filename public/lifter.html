@@ -204,15 +204,6 @@
       socket.on('disconnected', updateStatusUI);
     }
 
-    function updateStatusUI() {
-      const dot = document.getElementById('statusDot');
-      if (socket.connected) {
-        dot.className = 'status-dot online';
-      } else {
-        dot.className = 'status-dot offline';
-      }
-    }
-
     async function loadState() {
       try {
         const [state, dbLifters, results] = await Promise.all([

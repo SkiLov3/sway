@@ -1,4 +1,4 @@
-# Sway - Powerlifting Meet Management App
+# Sway - Powerlifting Meet Management App (v3.0.0)
 
 Sway is a minimal, local-first web application designed to help you run powerlifting meets straight from your laptop. It connects devices over your local network to provide real-time scoreboards, referee light systems, and TV display views.
 

@@ -367,6 +367,41 @@ function getStatusColor(status) {
 }
 
 /**
+ * Helper to get URL query parameters
+ */
+function getParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+
+/**
+ * Toast notifications
+ */
+function showToast(message, type = 'success') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+  
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  
+  container.appendChild(toast);
+  
+  // Trigger entry animation
+  setTimeout(() => toast.classList.add('show'), 10);
+  
+  // Auto-remove
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => container.removeChild(toast), 300);
+  }, 4000);
+}
+
+/**
  * Escape string for CSV format
  */
 function escapeCSV(text) {

@@ -120,14 +120,6 @@
       document.getElementById('headerTotal').textContent = `Total (${u})`;
     }
 
-    function updateStatusUI() {
-      const dot = document.getElementById('statusDot');
-      if (dot) {
-        dot.className = `status-dot ${socket.connected ? 'online' : 'offline'}`;
-        dot.title = socket.connected ? 'Connected' : 'Disconnected';
-      }
-    }
-
     async function loadResults() {
       try {
         resultsData = await API.getResults(meetId, isForecasted);
