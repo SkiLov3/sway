@@ -80,10 +80,6 @@ If you prefer using Docker to avoid installing Node.js:
 
 Sway uses an SQLite database (`better-sqlite3`). Once the server is started, a `data/sway.db` file is automatically created. All meet configurations, lifter data, and attempt results are saved immediately. You can safely stop and restart your laptop, and your meet data will persist.
 
-## Contributing
-
-Pull requests are welcome! If you find a bug or want to suggest a feature, please open an issue first.
-
 ## License
 
-GNU Affero General Public License v3.0 (AGPL-3.0)
+Proprietary - All Rights Reserved. This software and its source code are the exclusive property of the owner. Copying, redistribution, or commercial use without explicit written consent is strictly prohibited.
