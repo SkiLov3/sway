@@ -1,14 +1,26 @@
-PROPRIETARY LICENSE
+SWAY SOURCE AVAILABLE LICENSE (v1.0)
 
-Copyright (c) 2024. All Rights Reserved.
+Copyright (c) 2024-2026 Skilov3. All Rights Reserved.
 
-This software and all associated source code (the "Software") are the exclusive property of the owner. 
+This software and all associated source code (the "Software") are the exclusive property of Skilov3.
 
-1. RESTRICTIONS ON USE  
-You may not copy, modify, merge, publish, distribute, sublicense, or sell copies of the Software, in whole or in part, without the explicit written consent of the owner.
+1. PERMITTED USE
+You are permitted to view the source code and run the Software for personal, non-commercial, and non-profit purposes (e.g., local home gym use or non-profit community meets).
 
-2. COMMERCIAL USE  
-Commercial use of this software, including but not limited to using the software for profit-generating powerlifting events or selling the software to third parties, is strictly prohibited without a separate commercial licensing agreement.
+2. RESTRICTIONS
+The following actions are strictly prohibited without prior written consent from Skilov3:
+- Copying, modifying, merging, publishing, distributing, or sublicensing the Software for any purpose.
+- Using the Software for commercial purposes, including but not limited to:
+    a) Charging fees for participation in events managed by the Software.
+    b) Using the Software as part of a paid service or product.
+    c) Selling or redistributing the Software or its derivatives.
+- Removing or altering any copyright notices or branding from the Software.
 
-3. NO WARRANTY  
+3. DERIVATIVE WORKS
+Creation of derivative works based on this Software is not permitted without explicit written authorization.
+
+4. FUTURE LICENSING
+The owner reserves the right to license the Software under different terms in the future, including commercial licensing agreements. This license does not grant any rights to future versions of the Software that may be released under different terms.
+
+5. NO WARRANTY
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

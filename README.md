@@ -107,4 +107,4 @@ If you prefer using Docker to avoid installing Node.js:
 
 ## License
 
-Proprietary - All Rights Reserved. This software and its source code are the exclusive property of the owner. Copying, redistribution, or commercial use without explicit written consent is strictly prohibited.
+**Source Available** — Free for personal and non-profit use. Commercial use, redistribution, and derivative works are strictly prohibited without prior written consent from Skilov3. See the `LICENSE` file for full terms.
