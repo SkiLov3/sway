@@ -159,7 +159,6 @@
     
   </main>
 
-  <script src="/socket.io/socket.io.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/utils.js"></script>
   <script>
@@ -374,15 +373,16 @@
 
     function renderResults() {
       const tbody = document.getElementById('resultsBody');
-      if (!resultsData || resultsData.length === 0) {
+      const data = resultsData?.results || [];
+      if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="15" style="text-align:center;padding:30px;color:var(--text-muted)">No results available.</td></tr>`;
         return;
       }
 
       // Group by division exactly as results.html does
       const byDiv = {};
-      resultsData.forEach(r => {
-        const divName = r.lifter.division_name || 'Open';
+      data.forEach(r => {
+        const divName = r.division_name || 'Open';
         if (!byDiv[divName]) byDiv[divName] = [];
         byDiv[divName].push(r);
       });
@@ -414,14 +414,14 @@
             }
           });
 
-          const forecastedHtml = (isForecasted && r.total_projected) ? `<span class="forecasted-badge">PROJ</span>` : '';
+          const forecastedHtml = (isForecasted && r.isForecasted) ? `<span class="forecasted-badge">PROJ</span>` : '';
 
           html += `
             <tr>
-              <td style="font-weight:700; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.lifter.name)}</td>
-              <td style="font-size:0.75rem;color:var(--text-secondary); max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.lifter.team || '')}</td>
+              <td style="font-weight:700; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.name)}</td>
+              <td style="font-size:0.75rem;color:var(--text-secondary); max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(r.team || '')}</td>
               <td style="font-weight:700;color:var(--accent-secondary)">${r.place || '—'}</td>
-              <td style="color:var(--text-muted)">${r.lifter.body_weight || ''}</td>
+              <td style="color:var(--text-muted)">${r.body_weight || ''}</td>
               ${attemptsRow}
               <td style="font-weight:900;font-size:1.05rem">${r.total > 0 ? r.total : '—'} ${forecastedHtml}</td>
               <td style="font-family:'Roboto Condensed'">${r.dots ? r.dots.toFixed(2) : '—'}</td>
