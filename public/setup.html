@@ -625,9 +625,19 @@
       try {
         const result = await API.importCSV(meetId, formData);
         const resultDiv = document.getElementById('importResult');
+        let errorDetailsHtml = '';
+        if (result.errors && result.errors.length > 0) {
+          errorDetailsHtml = `
+            <div style="max-height: 150px; overflow-y: auto; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; margin-top: 8px; font-size: 0.8rem; text-align: left;">
+              <ul style="margin: 0; padding-left: 16px; color: var(--text-error); line-height: 1.4;">
+                ${result.errors.map(err => `<li>${escapeHtml(err)}</li>`).join('')}
+              </ul>
+            </div>`;
+        }
         resultDiv.innerHTML = `
           <div class="toast toast-success" style="position:static">✅ Imported ${result.imported} lifters</div>
           ${result.errors.length ? `<div class="toast toast-error" style="position:static;margin-top:4px">⚠️ ${result.errors.length} errors</div>` : ''}
+          ${errorDetailsHtml}
         `;
         await loadLifters();
       } catch (err) {

@@ -304,9 +304,9 @@
           if (data.meetId !== meetId) return;
           
           // Update individual ref lights as each vote comes in
-          if ('ref1' in data && data.ref1) document.getElementById('dispRef1').className = `ref-light ${data.ref1}`;
-          if ('ref2' in data && data.ref2) document.getElementById('dispRef2').className = `ref-light ${data.ref2}`;
-          if ('ref3' in data && data.ref3) document.getElementById('dispRef3').className = `ref-light ${data.ref3}`;
+          if ('ref1' in data) document.getElementById('dispRef1').className = `ref-light ${data.ref1 || 'waiting'}`;
+          if ('ref2' in data) document.getElementById('dispRef2').className = `ref-light ${data.ref2 || 'waiting'}`;
+          if ('ref3' in data) document.getElementById('dispRef3').className = `ref-light ${data.ref3 || 'waiting'}`;
           
           // Final decision: stop the clock, flash result
           if (data.result && (data.result === 'good' || data.result === 'no_good')) {

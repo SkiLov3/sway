@@ -422,8 +422,19 @@ router.get('/:id/results', (req, res) => {
         // Secondary: Lighter body weight wins
         return (a.body_weight || 9999) - (b.body_weight || 9999);
       });
+      let currentPlace = 1;
       group.forEach((lifter, idx) => {
-        lifter.place = lifter.total > 0 ? idx + 1 : '-';
+        if (lifter.total <= 0) {
+          lifter.place = '-';
+          return;
+        }
+        if (idx > 0) {
+          const prev = group[idx - 1];
+          if (lifter.total !== prev.total || lifter.body_weight !== prev.body_weight) {
+            currentPlace = idx + 1;
+          }
+        }
+        lifter.place = currentPlace;
       });
     });
 

@@ -46,6 +46,18 @@ app.use('/api/meets', require('./routes/meets'));
 app.use('/api/lifters', require('./routes/lifters'));
 app.use('/api/attempts', require('./routes/attempts'));
 
+// ── Error handler ──────────────────────────────────────────────────────────────
+const multer = require('multer');
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: `Upload error: ${err.message}` });
+  }
+  if (err) {
+    return res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+  }
+  next();
+});
+
 // ── Short-code redirects ───────────────────────────────────────────────────────
 app.get('/join/:code', (req, res) => {
   try {

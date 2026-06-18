@@ -353,7 +353,6 @@ router.post('/import/:meetId', upload.single('csv'), (req, res) => {
             db.prepare('INSERT INTO weight_classes (id, division_id, name, max_weight, sort_order) VALUES (?, ?, ?, ?, ?)').run(
               matchedWc.id, matchedWc.division_id, matchedWc.name, matchedWc.max_weight, matchedWc.sort_order
             );
-            weightClasses.push(matchedWc);
             weightClasses.push(matchedWc); // Keep local cache updated
           }
 

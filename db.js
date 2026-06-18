@@ -177,7 +177,7 @@ function initSchema() {
     {
       version: 7,
       description: 'Add squat_rack_in_out to lifters',
-      sql: "ALTER TABLE lifters ADD COLUMN squat_rack_in_out TEXT DEFAULT 'IN'",
+      sql: "ALTER TABLE lifters ADD COLUMN squat_rack_in_out TEXT DEFAULT 'OUT'",
     },
   ];
 

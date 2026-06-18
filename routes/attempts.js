@@ -148,6 +148,8 @@ router.put('/decision/:lifterId/:liftType/:attemptNumber', (req, res) => {
       if (votes.length === 3) {
         const whites = votes.filter(v => v === 'white').length;
         result = whites >= 2 ? 'good' : 'no_good';
+      } else {
+        result = 'pending';
       }
 
       db.prepare(`
