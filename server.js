@@ -89,7 +89,17 @@ app.get('/lifter/:code', (req, res) => handleShortCodeRedirect(req, res, 'lifter
 app.get('/r/:code',      (req, res) => handleShortCodeRedirect(req, res, 'results'));
 
 // ── Network & QR Helpers ───────────────────────────────────────────────────────
-function getLocalIP() {
+function getLocalIP(req = null) {
+  if (process.env.HOST_IP && process.env.HOST_IP.trim() !== '') {
+    return process.env.HOST_IP.trim();
+  }
+  if (req) {
+    const rawHost = (req.get('x-forwarded-host') || req.get('host') || '').split(':')[0].trim();
+    if (rawHost && rawHost !== 'localhost' && rawHost !== '127.0.0.1' && !rawHost.startsWith('172.')) {
+      return rawHost;
+    }
+  }
+
   const interfaces = os.networkInterfaces();
   const candidates = [];
 
@@ -97,8 +107,8 @@ function getLocalIP() {
     const ifaceList = interfaces[name] || [];
     for (const iface of ifaceList) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        // Prioritize physical interfaces like eth0 or en0
-        if (name.startsWith('eth') || name.startsWith('en') || name.startsWith('wlan')) {
+        // Prioritize local Wi-Fi/LAN subnets (192.168.x.x, 10.x.x.x) over container bridge interfaces
+        if (iface.address.startsWith('192.168.') || iface.address.startsWith('10.')) {
           return iface.address;
         }
         candidates.push(iface.address);
@@ -108,27 +118,36 @@ function getLocalIP() {
   return candidates[0] || '127.0.0.1';
 }
 
-// QR Code endpoint (Safely bounded path)
+// QR Code endpoint (Safely bounded path and host)
 app.get('/api/qrcode', async (req, res) => {
-  const localIP = getLocalIP();
-  const port = config.PORT;
   let targetUrl = req.query.path || '/';
   if (typeof targetUrl !== 'string' || !targetUrl.startsWith('/') || targetUrl.startsWith('//') || targetUrl.includes('@') || targetUrl.length > 512) {
     targetUrl = '/';
   }
-  const fullUrl = `http://${localIP}:${port}${targetUrl}`;
+
+  let fullUrl;
+  const customBase = req.query.baseUrl ? String(req.query.baseUrl).trim() : null;
+  if (customBase && (customBase.startsWith('http://') || customBase.startsWith('https://')) && !customBase.includes('@') && customBase.length <= 512) {
+    const cleanBase = customBase.replace(/\/+$/, '');
+    fullUrl = `${cleanBase}${targetUrl}`;
+  } else {
+    const localIP = getLocalIP(req);
+    const port = config.PORT;
+    const hostWithPort = localIP.includes(':') ? localIP : `${localIP}:${port}`;
+    fullUrl = `http://${hostWithPort}${targetUrl}`;
+  }
   
   try {
     const qrDataUrl = await QRCode.toDataURL(fullUrl, { width: 300, margin: 2 });
-    res.json({ url: fullUrl, qr: qrDataUrl, ip: localIP, port });
+    res.json({ url: fullUrl, qr: qrDataUrl, baseUrl: fullUrl.replace(targetUrl, '') });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 // Network info endpoint
-app.get('/api/network', (_req, res) => {
-  const localIP = getLocalIP();
+app.get('/api/network', (req, res) => {
+  const localIP = getLocalIP(req);
   res.json({ 
     ip: localIP, 
     port: config.PORT, 

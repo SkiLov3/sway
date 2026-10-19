@@ -71,7 +71,7 @@ const API = {
   
   // Network
   getNetworkInfo: () => api('/network'),
-  getQRCode: (path) => api(`/qrcode?path=${encodeURIComponent(path || '/')}`),
+  getQRCode: (path, baseUrl) => api(`/qrcode?path=${encodeURIComponent(path || '/')}${baseUrl ? `&baseUrl=${encodeURIComponent(baseUrl)}` : ''}`),
 };
 
 // ── WebSocket ──

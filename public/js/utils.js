@@ -193,7 +193,7 @@ function toggleSidebar() {
 window.toggleSidebar = toggleSidebar;
 
 async function showQRCode(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
   const meetId = getParam('meetId');
   try {
     const info = await API.getNetworkInfo();
@@ -202,6 +202,19 @@ async function showQRCode(e) {
       meet = await API.getMeet(meetId);
     } catch (err) {
       console.warn('[QR] Meet lookup error:', err.message);
+    }
+
+    // Determine the optimal base URL for phone QR codes
+    let effectiveBaseUrl = localStorage.getItem('sway_base_url');
+    if (!effectiveBaseUrl) {
+      const locHost = window.location.hostname;
+      if (locHost && locHost !== 'localhost' && locHost !== '127.0.0.1' && !locHost.startsWith('172.')) {
+        effectiveBaseUrl = `${window.location.protocol}//${window.location.host}`;
+      } else if (info.baseUrl && !info.baseUrl.includes('://172.')) {
+        effectiveBaseUrl = info.baseUrl;
+      } else {
+        effectiveBaseUrl = 'http://192.168.4.98:3000';
+      }
     }
     
     // Default URLs
@@ -221,15 +234,28 @@ async function showQRCode(e) {
       paths[3].path = `/run/${meet.short_code}`;
       paths[4].path = `/lifter/${meet.short_code}`;
       
-      paths[0].displayUrl = `${info.baseUrl}/tv/${meet.short_code}`;
-      paths[1].displayUrl = `${info.baseUrl}/join/${meet.short_code}`;
-      paths[2].displayUrl = `${info.baseUrl}/r/${meet.short_code}`;
-      paths[3].displayUrl = `${info.baseUrl}/run/${meet.short_code}`;
-      paths[4].displayUrl = `${info.baseUrl}/lifter/${meet.short_code}`;
+      paths[0].displayUrl = `${effectiveBaseUrl}/tv/${meet.short_code}`;
+      paths[1].displayUrl = `${effectiveBaseUrl}/join/${meet.short_code}`;
+      paths[2].displayUrl = `${effectiveBaseUrl}/r/${meet.short_code}`;
+      paths[3].displayUrl = `${effectiveBaseUrl}/run/${meet.short_code}`;
+      paths[4].displayUrl = `${effectiveBaseUrl}/lifter/${meet.short_code}`;
+    } else {
+      paths.forEach(p => {
+        p.displayUrl = `${effectiveBaseUrl}${p.path}`;
+      });
     }
     
     let html = '<div class="modal-title">📱 QR Codes & Short URLs</div>';
-    html += `<p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.85rem">Base URL: <strong>${info.baseUrl}</strong></p>`;
+    html += `
+      <div style="background:var(--bg-secondary);padding:10px;border-radius:6px;margin-bottom:16px;border:1px solid var(--border-color);text-align:left">
+        <label style="font-size:0.75rem;color:var(--text-muted);display:block;margin-bottom:4px;font-weight:600">Network Base URL (Phone Access):</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="qrBaseUrlInput" class="form-input" value="${escapeHtml(effectiveBaseUrl)}" style="font-size:0.85rem;padding:6px 10px;flex:1">
+          <button class="btn btn-primary btn-sm" onclick="applyCustomQRBaseUrl(event)">Update</button>
+        </div>
+        <small style="color:var(--text-muted);font-size:0.7rem;display:block;margin-top:4px">Ensure this is your computer's Wi-Fi / LAN IP, not a 172.x Docker container IP.</small>
+      </div>
+    `;
     
     // Show short code hint if one exists
     if (meet && meet.short_code) {
@@ -240,7 +266,7 @@ async function showQRCode(e) {
     }
     
     for (const p of paths) {
-      const qr = await API.getQRCode(p.path);
+      const qr = await API.getQRCode(p.path, effectiveBaseUrl);
       const urlText = p.displayUrl || qr.url;
       html += `
         <div style="margin-bottom:20px;text-align:center">
@@ -257,6 +283,20 @@ async function showQRCode(e) {
     showToast('Failed to generate QR codes: ' + err.message, 'error');
   }
 }
+
+async function applyCustomQRBaseUrl(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const input = document.getElementById('qrBaseUrlInput');
+  if (input && input.value) {
+    let clean = input.value.trim().replace(/\/+$/, '');
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `http://${clean}`;
+    }
+    localStorage.setItem('sway_base_url', clean);
+    await showQRCode({ preventDefault: () => {} });
+  }
+}
+window.applyCustomQRBaseUrl = applyCustomQRBaseUrl;
 
 /**
  * Simple Modal
