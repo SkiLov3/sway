@@ -241,6 +241,29 @@
         socket.on('meet_updated', () => loadOrder());
         socket.on('attempt_updated', () => loadOrder());
         socket.on('decision_made', async (data) => {
+          if (data && data.meetId && data.meetId !== meetId) return;
+
+          // Immediately update referee panel lights and active buttons
+          const activeLifter = liftingOrder[currentLifterIdx];
+          if (activeLifter && (!data.lifterId || data.lifterId === activeLifter.id)) {
+            [1, 2, 3].forEach(n => {
+              const val = data[`ref${n}`];
+              const light = document.getElementById(`refSmall${n}`);
+              if (light) {
+                light.className = `ref-light ${val || 'waiting'}`;
+              }
+              const whiteBtn = document.getElementById(`ref${n}White`);
+              const redBtn = document.getElementById(`ref${n}Red`);
+              if (whiteBtn) whiteBtn.classList.toggle('active', val === 'white');
+              if (redBtn) redBtn.classList.toggle('active', val === 'red');
+            });
+            refDecisions = {
+              ref1: data.ref1 || '',
+              ref2: data.ref2 || '',
+              ref3: data.ref3 || ''
+            };
+          }
+
           setTimeout(async () => {
             // Load latest data from DB to reflect the new result (good/no_good)
             liftingOrder = await API.getLiftingOrder(meetId, platform, currentFlight, currentLift, currentAttemptNum);

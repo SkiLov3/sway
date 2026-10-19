@@ -687,15 +687,15 @@ tr:hover {
 }
 
 .ref-light.white {
-  background: white;
-  box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
-  border-color: white;
+  background: #ffffff;
+  box-shadow: 0 0 35px rgba(255, 255, 255, 0.8), 0 0 10px rgba(255, 255, 255, 1);
+  border-color: #ffffff;
 }
 
 .ref-light.red {
-  background: var(--no-lift);
-  box-shadow: 0 0 30px var(--no-lift-glow);
-  border-color: var(--no-lift);
+  background: #e74c3c;
+  box-shadow: 0 0 35px rgba(231, 76, 60, 0.8), 0 0 10px rgba(231, 76, 60, 1);
+  border-color: #e74c3c;
 }
 
 /* Display-size lights */

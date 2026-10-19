@@ -7,10 +7,6 @@ function broadcastAttempt(req, type, meetId, attempt) {
   const broadcast = req.app.get('broadcast');
   if (!broadcast) return;
 
-  const votes = [attempt.ref1, attempt.ref2, attempt.ref3].filter(v => v === 'white' || v === 'red');
-  const isFinalDecision = votes.length === 3;
-
-  // Mask individual light colors on public broadcast until all 3 referees have voted (IPF / USAPL rule)
   const payload = {
     type,
     data: {
@@ -21,9 +17,9 @@ function broadcastAttempt(req, type, meetId, attempt) {
       attemptNumber: attempt.attempt_number,
       weight: attempt.weight,
       result: attempt.result,
-      ref1: isFinalDecision ? attempt.ref1 : (attempt.ref1 ? 'voted' : ''),
-      ref2: isFinalDecision ? attempt.ref2 : (attempt.ref2 ? 'voted' : ''),
-      ref3: isFinalDecision ? attempt.ref3 : (attempt.ref3 ? 'voted' : ''),
+      ref1: attempt.ref1 || '',
+      ref2: attempt.ref2 || '',
+      ref3: attempt.ref3 || '',
       ref1Voted: Boolean(attempt.ref1),
       ref2Voted: Boolean(attempt.ref2),
       ref3Voted: Boolean(attempt.ref3)
