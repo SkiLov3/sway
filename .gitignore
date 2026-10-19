@@ -3,6 +3,9 @@ data/
 uploads/
 *.csv
 
+# Pi Agent tasks and sessions
+.pi/
+
 # Serena configuration
 .serena
 serena.log
