@@ -1,29 +1,37 @@
 const Database = require('better-sqlite3');
-const path = require('path');
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-
-const DB_PATH = path.join(__dirname, 'data', 'sway.db');
+const config = require('./config');
 
 let db;
 let isInitialized = false;
 
 function getDb(customPath) {
   if (!db || customPath) {
-    const fs = require('fs');
-    const dbPath = customPath || DB_PATH;
+    if (customPath && db) {
+      try {
+        db.close();
+      } catch (err) {
+        console.warn('[DB] Error closing existing database:', err.message);
+      }
+      db = null;
+      isInitialized = false;
+    }
+
+    const dbPath = customPath || config.DB_PATH;
     
-    // Only create directory if using default path
-    if (!customPath) {
-      const dataDir = path.join(__dirname, 'data');
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
+    // Only create directory if using file-based default path
+    if (!customPath && dbPath !== ':memory:') {
+      if (!fs.existsSync(config.DATA_DIR)) {
+        fs.mkdirSync(config.DATA_DIR, { recursive: true });
       }
     }
     
-    db = new Database(dbPath);
+    db = new Database(dbPath, { timeout: config.DB_TIMEOUT_MS });
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL'); // Safe with WAL, improves performance
     db.pragma('foreign_keys = ON');
+    db.pragma(`busy_timeout = ${config.DB_TIMEOUT_MS}`);
     
     if (!isInitialized || customPath) {
       initSchema();
@@ -35,7 +43,14 @@ function getDb(customPath) {
 
 function resetDb() {
   if (db) {
-    db.close();
+    try {
+      if (db.open) {
+        db.pragma('wal_checkpoint(TRUNCATE)');
+        db.close();
+      }
+    } catch (err) {
+      console.warn('[DB] Error during resetDb:', err.message);
+    }
     db = null;
     isInitialized = false;
   }
@@ -52,8 +67,10 @@ function initSchema() {
       plates_config TEXT DEFAULT '{}',
       units TEXT COLLATE NOCASE DEFAULT 'kg',
       decision_display_seconds INTEGER DEFAULT 15,
+      short_code TEXT COLLATE NOCASE DEFAULT '',
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_meets_short_code ON meets(short_code) WHERE short_code != '';
 
     CREATE TABLE IF NOT EXISTS divisions (
       id TEXT PRIMARY KEY,
@@ -152,7 +169,7 @@ function initSchema() {
     {
       version: 2,
       description: 'Add short_code to meets',
-      sql: "ALTER TABLE meets ADD COLUMN short_code TEXT DEFAULT ''; CREATE UNIQUE INDEX IF NOT EXISTS idx_meets_short_code ON meets(short_code) WHERE short_code != '';",
+      sql: "ALTER TABLE meets ADD COLUMN short_code TEXT COLLATE NOCASE DEFAULT ''; CREATE UNIQUE INDEX IF NOT EXISTS idx_meets_short_code ON meets(short_code) WHERE short_code != '';",
     },
     {
       version: 3,
@@ -186,16 +203,14 @@ function initSchema() {
       if (appliedVersions.has(m.version)) continue;
       try {
         db.exec(m.sql);
-        db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
-        console.log(`[DB] Applied migration v${m.version}: ${m.description}`);
       } catch (e) {
-        // 'duplicate column name' means it was already applied before version tracking
+        // 'duplicate column name' means it was already in base table or applied before version tracking
         if (!e.message.includes('duplicate column name')) {
           console.warn(`[DB] Migration v${m.version} warning: ${e.message}`);
-          throw e; // Fail the transaction for real errors
+          throw e;
         }
-        db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
       }
+      db.prepare('INSERT OR IGNORE INTO schema_versions (version) VALUES (?)').run(m.version);
     }
   });
 

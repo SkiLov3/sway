@@ -81,10 +81,19 @@ class SwaySocket {
     this.listeners = {};
     this.reconnectDelay = 1000;
     this.maxReconnectDelay = 10000;
+    this.reconnectTimer = null;
     this.connected = false;
   }
 
   connect() {
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     this.ws = new WebSocket(`${proto}//${location.host}`);
     
@@ -110,10 +119,10 @@ class SwaySocket {
     };
     
     this.ws.onclose = () => {
-      console.log('[SWAY] WebSocket disconnected, reconnecting...');
       this.connected = false;
       this.emit('disconnected');
-      setTimeout(() => this.connect(), this.reconnectDelay);
+      const jitter = Math.random() * 300;
+      this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay + jitter);
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
     };
     
@@ -129,18 +138,22 @@ class SwaySocket {
   }
 
   on(event, callback) {
-    if (!this.listeners[event]) this.listeners[event] = [];
-    this.listeners[event].push(callback);
+    if (!this.listeners[event]) this.listeners[event] = new Set();
+    this.listeners[event].add(callback);
   }
 
   off(event, callback) {
     if (this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+      this.listeners[event].delete(callback);
     }
   }
 
   emit(event, data) {
-    (this.listeners[event] || []).forEach(cb => cb(data));
+    if (this.listeners[event]) {
+      this.listeners[event].forEach(cb => {
+        try { cb(data); } catch (e) { console.error('[SWAY] Listener error:', e); }
+      });
+    }
   }
 }
 
@@ -174,7 +187,11 @@ function getParam(name) {
 }
 
 function setParam(name, value) {
-  const url = new URL(window.location);
-  url.searchParams.set(name, value);
-  window.history.replaceState({}, '', url);
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set(name, value);
+    window.history.replaceState({}, '', url);
+  } catch (err) {
+    console.error('[SWAY] setParam error:', err);
+  }
 }

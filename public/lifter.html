@@ -84,8 +84,8 @@
     </div>
     
     <div class="view-tabs">
-      <button class="view-tab active" onclick="switchView('order')">Lifting Order</button>
-      <button class="view-tab" onclick="switchView('results')">Results</button>
+      <button class="view-tab active" onclick="switchView(event, 'order')">Lifting Order</button>
+      <button class="view-tab" onclick="switchView(event, 'results')">Results</button>
     </div>
   </div>
 
@@ -228,9 +228,10 @@
         // Update top banner using current state
         updateTopBanner(activeQueue);
         
-        // Fetch order for the current user's UI tabs
+        // Fetch order for the current user's UI tabs (dynamic attempt progression)
         try {
-          liftingOrder = await API.getLiftingOrder(meetId, 1, currentFlight, currentLift, 1);
+          const attemptNumToLoad = meetState?.current_attempt_number || 1;
+          liftingOrder = await API.getLiftingOrder(meetId, 1, currentFlight, currentLift, attemptNumToLoad);
         } catch(e) {
           liftingOrder = [];
         }
@@ -247,10 +248,12 @@
       }
     }
 
-    function switchView(viewName) {
+    function switchView(e, viewName) {
       document.querySelectorAll('.view-tab').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.pane').forEach(el => el.classList.remove('active'));
-      event.target.classList.add('active');
+      if (e && e.target) {
+        e.target.classList.add('active');
+      }
       document.getElementById(`pane-${viewName}`).classList.add('active');
     }
     
@@ -280,9 +283,17 @@
       }
       
       const tabGroup = document.getElementById('flightTabs');
-      tabGroup.innerHTML = activeFlights.map(f => 
-        `<button class="flight-tab ${f === currentFlight ? 'active' : ''}" data-flight="${f}" onclick="switchFlight('${f}')">Flight ${f}</button>`
-      ).join('');
+      const tabsHtml = activeFlights.map(f => {
+        const safeFlight = escapeHtml(f);
+        return `<button class="flight-tab ${f === currentFlight ? 'active' : ''}" data-flight="${safeFlight}" onclick="switchFlight('${safeFlight}')">Flight ${safeFlight}</button>`;
+      }).join('');
+
+      tabGroup.replaceChildren();
+      const doc = new DOMParser().parseFromString(`<div>${tabsHtml}</div>`, 'text/html');
+      const container = doc.querySelector('div');
+      while (container && container.firstChild) {
+        tabGroup.appendChild(container.firstChild);
+      }
     }
 
     function updateTopBanner(activeQueue) {
@@ -327,12 +338,22 @@
       const tbody = document.getElementById('orderBody');
       const curId = meetState?.current_lifter_id;
       
+      tbody.replaceChildren();
+
       if (liftingOrder.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">No lifters in Flight ${currentFlight}</td></tr>`;
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 6;
+        td.style.textAlign = 'center';
+        td.style.padding = '20px';
+        td.style.color = 'var(--text-muted)';
+        td.textContent = `No lifters in Flight ${currentFlight}`;
+        tr.appendChild(td);
+        tbody.appendChild(tr);
         return;
       }
       
-      tbody.innerHTML = liftingOrder.map((l, i) => {
+      const rowsHtml = liftingOrder.map((l, i) => {
         const isActive = l.id === curId && meetState?.current_lift_type === currentLift && meetState?.current_flight === currentFlight;
         
         let attemptsHtml = '';
@@ -354,6 +375,12 @@
           </tr>
         `;
       }).join('');
+
+      const doc = new DOMParser().parseFromString(`<table><tbody>${rowsHtml}</tbody></table>`, 'text/html');
+      const newTbody = doc.querySelector('tbody');
+      while (newTbody && newTbody.firstChild) {
+        tbody.appendChild(newTbody.firstChild);
+      }
     }
     
     function toggleForecasted() {
@@ -430,7 +457,12 @@
         });
       }
 
-      tbody.innerHTML = html;
+      tbody.replaceChildren();
+      const doc = new DOMParser().parseFromString(`<table><tbody>${html}</tbody></table>`, 'text/html');
+      const newTbody = doc.querySelector('tbody');
+      while (newTbody && newTbody.firstChild) {
+        tbody.appendChild(newTbody.firstChild);
+      }
     }
 
     init();

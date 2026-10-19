@@ -4,8 +4,11 @@ const { calculateDOTS } = require('../utils/scoring');
 
 const router = express.Router();
 
+const MAX_MEET_NAME = 300;
+const MAX_FED = 100;
+
 // List all meets
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   try {
     const db = getDb();
     const meets = db.prepare('SELECT * FROM meets ORDER BY created_at DESC').all();
@@ -27,10 +30,7 @@ router.get('/:id', (req, res) => {
   }
 });
 
-const MAX_MEET_NAME = 300;
-const MAX_FED = 100;
-
-// Create meet
+// Create meet (Atomic transaction)
 router.post('/', (req, res) => {
   try {
     const db = getDb();
@@ -48,13 +48,17 @@ router.post('/', (req, res) => {
     }
 
     const resolvedUnits = (units || 'kg').toLowerCase() === 'lbs' ? 'lbs' : 'kg';
-    
-    db.prepare('INSERT INTO meets (id, name, date, federation, units) VALUES (?, ?, ?, ?, ?)').run(
-      id, name.trim(), date || new Date().toISOString().split('T')[0], federation || '', resolvedUnits
-    );
-    
-    // Create default meet state
-    db.prepare('INSERT INTO meet_state (meet_id) VALUES (?)').run(id);
+    const meetDate = date || new Date().toISOString().split('T')[0];
+
+    const createTx = db.transaction(() => {
+      db.prepare('INSERT INTO meets (id, name, date, federation, units) VALUES (?, ?, ?, ?, ?)').run(
+        id, name.trim(), meetDate, federation || '', resolvedUnits
+      );
+      // Create default meet state
+      db.prepare('INSERT INTO meet_state (meet_id) VALUES (?)').run(id);
+    });
+
+    createTx();
     
     const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(id);
     res.status(201).json(meet);
@@ -78,6 +82,14 @@ router.put('/:id', (req, res) => {
     }
     if (federation && federation.length > MAX_FED) return res.status(400).json({ error: `Federation must be ${MAX_FED} characters or fewer` });
 
+    // Validate status
+    if (status !== undefined) {
+      const validStatuses = ['setup', 'running', 'complete'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Status must be "setup", "running", or "complete"' });
+      }
+    }
+
     // Validate short_code: alphanumeric only, max 12 chars, case-insensitive (NOCASE)
     let resolvedShortCode = meet.short_code ?? '';
     if (short_code !== undefined) {
@@ -94,7 +106,7 @@ router.put('/:id', (req, res) => {
     // Validate decision_display_seconds
     let resolvedFlashSecs = meet.decision_display_seconds ?? 15;
     if (decision_display_seconds !== undefined) {
-      const s = parseInt(decision_display_seconds);
+      const s = parseInt(decision_display_seconds, 10);
       if (isNaN(s) || s < 1 || s > 120) return res.status(400).json({ error: 'Decision display time must be between 1 and 120 seconds' });
       resolvedFlashSecs = s;
     }
@@ -154,37 +166,48 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-// Reset meet strictly to openers
+// Reset meet strictly to openers (Non-destructive: preserves attempts 2 and 3 rows)
 router.post('/:id/reset', (req, res) => {
   try {
     const db = getDb();
-    
-    // Perform bulk transactional wipe
+    const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
+    if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
     const resetTx = db.transaction(() => {
-      // Find all lifters in this meet
-      const lifters = db.prepare('SELECT id FROM lifters WHERE meet_id = ?').all(req.params.id);
-      if (lifters.length === 0) return;
-      
-      const lifterIds = lifters.map(l => l.id);
-      const inClause = lifterIds.map(() => '?').join(',');
-      
-      // Delete attempt 2 and 3 entirely
-      db.prepare(`DELETE FROM attempts WHERE lifter_id IN (${inClause}) AND attempt_number > 1`).run(...lifterIds);
-      
-      // Reset attempt 1 back to unjudged state
+      // 1. Reset attempt 1 back to unjudged state
       db.prepare(`
-        UPDATE attempts SET result = 'pending', ref1 = NULL, ref2 = NULL, ref3 = NULL
-        WHERE lifter_id IN (${inClause}) AND attempt_number = 1
-      `).run(...lifterIds);
-      
-      // Reset the meet pointer state
+        UPDATE attempts 
+        SET result = 'pending', ref1 = '', ref2 = '', ref3 = ''
+        WHERE lifter_id IN (SELECT id FROM lifters WHERE meet_id = ?) AND attempt_number = 1
+      `).run(req.params.id);
+
+      // 2. Clear attempt 2, 3, 4 without deleting rows (so future judging works)
       db.prepare(`
-        UPDATE meet_state SET current_lift_type = 'squat', current_flight = 'A', current_attempt_number = 1
+        UPDATE attempts 
+        SET weight = NULL, result = 'pending', ref1 = '', ref2 = '', ref3 = ''
+        WHERE lifter_id IN (SELECT id FROM lifters WHERE meet_id = ?) AND attempt_number > 1
+      `).run(req.params.id);
+
+      // 3. Fully reset meet state (even if no lifters are registered yet)
+      db.prepare(`
+        UPDATE meet_state 
+        SET current_platform = 1, current_lift_type = 'squat', current_flight = 'A', current_attempt_number = 1,
+            current_lifter_id = '', clock_seconds = 60, clock_running = 0, round_number = 1
         WHERE meet_id = ?
       `).run(req.params.id);
+
+      // 4. Reset meet status back to setup
+      db.prepare("UPDATE meets SET status = 'setup' WHERE id = ?").run(req.params.id);
     });
-    
+
     resetTx();
+
+    const broadcast = req.app.get('broadcast');
+    if (broadcast) {
+      broadcast({ type: 'meet_updated', data: { meetId: req.params.id } });
+      broadcast({ type: 'state_changed', data: { meetId: req.params.id } });
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -194,158 +217,215 @@ router.post('/:id/reset', (req, res) => {
 // --- Divisions ---
 
 router.get('/:id/divisions', (req, res) => {
-  const db = getDb();
-  const divisions = db.prepare(`
-    SELECT d.*, 
-      (SELECT json_group_array(json_object('id', wc.id, 'name', wc.name, 'maxWeight', wc.max_weight, 'sortOrder', wc.sort_order))
-       FROM weight_classes wc WHERE wc.division_id = d.id ORDER BY wc.sort_order) as weight_classes
-    FROM divisions d WHERE d.meet_id = ? ORDER BY d.sort_order
-  `).all(req.params.id);
-  
-  divisions.forEach(d => {
-    d.weight_classes = JSON.parse(d.weight_classes || '[]');
-  });
-  
-  res.json(divisions);
+  try {
+    const db = getDb();
+    const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
+    if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
+    const divisions = db.prepare(`
+      SELECT d.*, 
+        (SELECT json_group_array(json_object('id', wc.id, 'name', wc.name, 'maxWeight', wc.max_weight, 'sortOrder', wc.sort_order))
+         FROM weight_classes wc WHERE wc.division_id = d.id ORDER BY wc.sort_order) as weight_classes
+      FROM divisions d WHERE d.meet_id = ? ORDER BY d.sort_order
+    `).all(req.params.id);
+    
+    divisions.forEach(d => {
+      d.weight_classes = JSON.parse(d.weight_classes || '[]');
+    });
+    
+    res.json(divisions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post('/:id/divisions', (req, res) => {
-  const db = getDb();
-  const id = generateId();
-  const { name, sort_order } = req.body;
-  
-  db.prepare('INSERT INTO divisions (id, meet_id, name, sort_order) VALUES (?, ?, ?, ?)').run(
-    id, req.params.id, name || 'New Division', sort_order || 0
-  );
-  
-  res.status(201).json(db.prepare('SELECT * FROM divisions WHERE id = ?').get(id));
+  try {
+    const db = getDb();
+    const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
+    if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
+    const id = generateId();
+    const { name, sort_order } = req.body;
+    
+    db.prepare('INSERT INTO divisions (id, meet_id, name, sort_order) VALUES (?, ?, ?, ?)').run(
+      id, req.params.id, name || 'New Division', sort_order || 0
+    );
+    
+    res.status(201).json(db.prepare('SELECT * FROM divisions WHERE id = ?').get(id));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.put('/divisions/:divId', (req, res) => {
-  const db = getDb();
-  const { name, sort_order } = req.body;
-  db.prepare('UPDATE divisions SET name = COALESCE(?, name), sort_order = COALESCE(?, sort_order) WHERE id = ?').run(
-    name, sort_order, req.params.divId
-  );
-  res.json(db.prepare('SELECT * FROM divisions WHERE id = ?').get(req.params.divId));
+  try {
+    const db = getDb();
+    const { name, sort_order } = req.body;
+    const existing = db.prepare('SELECT * FROM divisions WHERE id = ?').get(req.params.divId);
+    if (!existing) return res.status(404).json({ error: 'Division not found' });
+
+    db.prepare('UPDATE divisions SET name = COALESCE(?, name), sort_order = COALESCE(?, sort_order) WHERE id = ?').run(
+      name, sort_order, req.params.divId
+    );
+    res.json(db.prepare('SELECT * FROM divisions WHERE id = ?').get(req.params.divId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.delete('/divisions/:divId', (req, res) => {
-  const db = getDb();
-  db.prepare('DELETE FROM divisions WHERE id = ?').run(req.params.divId);
-  res.json({ success: true });
+  try {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM divisions WHERE id = ?').run(req.params.divId);
+    if (result.changes === 0) return res.status(404).json({ error: 'Division not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Weight Classes ---
 
 router.post('/divisions/:divId/weight-classes', (req, res) => {
-  const db = getDb();
-  const id = generateId();
-  const { name, max_weight, sort_order } = req.body;
-  
-  db.prepare('INSERT INTO weight_classes (id, division_id, name, max_weight, sort_order) VALUES (?, ?, ?, ?, ?)').run(
-    id, req.params.divId, name || '', max_weight || null, sort_order || 0
-  );
-  
-  res.status(201).json(db.prepare('SELECT * FROM weight_classes WHERE id = ?').get(id));
+  try {
+    const db = getDb();
+    const division = db.prepare('SELECT id FROM divisions WHERE id = ?').get(req.params.divId);
+    if (!division) return res.status(404).json({ error: 'Division not found' });
+
+    const id = generateId();
+    const { name, max_weight, sort_order } = req.body;
+    
+    db.prepare('INSERT INTO weight_classes (id, division_id, name, max_weight, sort_order) VALUES (?, ?, ?, ?, ?)').run(
+      id, req.params.divId, name || '', max_weight || null, sort_order || 0
+    );
+    
+    res.status(201).json(db.prepare('SELECT * FROM weight_classes WHERE id = ?').get(id));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.put('/weight-classes/:wcId', (req, res) => {
-  const db = getDb();
-  const { name, max_weight, sort_order } = req.body;
-  db.prepare('UPDATE weight_classes SET name = COALESCE(?, name), max_weight = COALESCE(?, max_weight), sort_order = COALESCE(?, sort_order) WHERE id = ?').run(
-    name, max_weight, sort_order, req.params.wcId
-  );
-  res.json(db.prepare('SELECT * FROM weight_classes WHERE id = ?').get(req.params.wcId));
+  try {
+    const db = getDb();
+    const existing = db.prepare('SELECT * FROM weight_classes WHERE id = ?').get(req.params.wcId);
+    if (!existing) return res.status(404).json({ error: 'Weight class not found' });
+
+    const { name, max_weight, sort_order } = req.body;
+    db.prepare('UPDATE weight_classes SET name = COALESCE(?, name), max_weight = COALESCE(?, max_weight), sort_order = COALESCE(?, sort_order) WHERE id = ?').run(
+      name, max_weight, sort_order, req.params.wcId
+    );
+    res.json(db.prepare('SELECT * FROM weight_classes WHERE id = ?').get(req.params.wcId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.delete('/weight-classes/:wcId', (req, res) => {
-  const db = getDb();
-  db.prepare('DELETE FROM weight_classes WHERE id = ?').run(req.params.wcId);
-  res.json({ success: true });
+  try {
+    const db = getDb();
+    const result = db.prepare('DELETE FROM weight_classes WHERE id = ?').run(req.params.wcId);
+    if (result.changes === 0) return res.status(404).json({ error: 'Weight class not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Meet State ---
 
 router.get('/:id/state', (req, res) => {
-  const db = getDb();
-  
-  // Verify meet exists to avoid FK error on auto-vivify
-  const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
-  if (!meet) return res.status(404).json({ error: 'Meet not found' });
+  try {
+    const db = getDb();
+    const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
+    if (!meet) return res.status(404).json({ error: 'Meet not found' });
 
-  let state = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
-  if (!state) {
-    db.prepare('INSERT INTO meet_state (meet_id) VALUES (?)').run(req.params.id);
-    state = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
+    db.prepare('INSERT OR IGNORE INTO meet_state (meet_id) VALUES (?)').run(req.params.id);
+    const state = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
+    res.json(state);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  res.json(state);
 });
 
 router.put('/:id/state', (req, res) => {
-  const db = getDb();
-  const { current_platform, current_lift_type, current_attempt_number, current_flight, current_lifter_id, clock_seconds, clock_running } = req.body;
-  
-  // Verify meet exists to avoid FK error on auto-vivify
-  const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
-  if (!meet) return res.status(404).json({ error: 'Meet not found' });
+  try {
+    const db = getDb();
+    const { 
+      current_platform, current_lift_type, current_attempt_number, 
+      current_flight, current_lifter_id, clock_seconds, clock_running, round_number 
+    } = req.body;
+    
+    const meet = db.prepare('SELECT id FROM meets WHERE id = ?').get(req.params.id);
+    if (!meet) return res.status(404).json({ error: 'Meet not found' });
 
-  if (current_lift_type !== undefined && !['squat', 'bench', 'deadlift'].includes(current_lift_type)) {
-    return res.status(400).json({ error: 'Invalid lift type' });
-  }
+    if (current_lift_type !== undefined && !['squat', 'bench', 'deadlift'].includes(current_lift_type)) {
+      return res.status(400).json({ error: 'Invalid lift type' });
+    }
+    if (current_attempt_number !== undefined && (current_attempt_number < 1 || current_attempt_number > 4)) {
+      return res.status(400).json({ error: 'Attempt number must be between 1 and 4' });
+    }
 
-  let state = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
-  if (!state) {
-    db.prepare('INSERT INTO meet_state (meet_id) VALUES (?)').run(req.params.id);
-    state = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
-  }
-  
-  db.prepare(`
-    UPDATE meet_state SET 
-      current_platform = COALESCE(?, current_platform),
-      current_lift_type = COALESCE(?, current_lift_type),
-      current_attempt_number = COALESCE(?, current_attempt_number),
-      current_flight = COALESCE(?, current_flight),
-      current_lifter_id = COALESCE(?, current_lifter_id),
-      clock_seconds = COALESCE(?, clock_seconds),
-      clock_running = COALESCE(?, clock_running)
-    WHERE meet_id = ?
-  `).run(
-    current_platform ?? null, 
-    current_lift_type ?? null, 
-    current_attempt_number ?? null, 
-    current_flight ?? null,
-    current_lifter_id ?? null, 
-    clock_seconds ?? null, 
-    clock_running ?? null, 
-    req.params.id
-  );
-  
-  const updated = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
+    db.prepare('INSERT OR IGNORE INTO meet_state (meet_id) VALUES (?)').run(req.params.id);
+    const existing = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
+    
+    // Allow explicitly setting current_lifter_id to '' or null to clear it
+    const resolvedLifterId = current_lifter_id !== undefined ? (current_lifter_id || '') : existing.current_lifter_id;
 
-  // Broadcast state change
-  const broadcast = req.app.get('broadcast');
-  if (broadcast) {
-    broadcast({ 
-      type: 'state_changed', 
-      data: { 
-        meetId: req.params.id, 
-        ...updated
-      } 
-    });
+    db.prepare(`
+      UPDATE meet_state SET 
+        current_platform = ?,
+        current_lift_type = ?,
+        current_attempt_number = ?,
+        current_flight = ?,
+        current_lifter_id = ?,
+        clock_seconds = ?,
+        clock_running = ?,
+        round_number = ?
+      WHERE meet_id = ?
+    `).run(
+      current_platform !== undefined ? current_platform : existing.current_platform,
+      current_lift_type !== undefined ? current_lift_type : existing.current_lift_type,
+      current_attempt_number !== undefined ? current_attempt_number : existing.current_attempt_number,
+      current_flight !== undefined ? current_flight : existing.current_flight,
+      resolvedLifterId,
+      clock_seconds !== undefined ? clock_seconds : existing.clock_seconds,
+      clock_running !== undefined ? clock_running : existing.clock_running,
+      round_number !== undefined ? round_number : existing.round_number,
+      req.params.id
+    );
+    
+    const updated = db.prepare('SELECT * FROM meet_state WHERE meet_id = ?').get(req.params.id);
+
+    // Broadcast state change
+    const broadcast = req.app.get('broadcast');
+    if (broadcast) {
+      broadcast({ 
+        type: 'state_changed', 
+        data: { 
+          meetId: req.params.id, 
+          ...updated
+        } 
+      });
+    }
+    
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  res.json(updated);
 });
 
-// --- Results ---
+// --- Results (Powerlifting Rules Compliant) ---
 
 router.get('/:id/results', (req, res) => {
   try {
     const db = getDb();
-    
     const isForecasted = req.query.forecasted === 'true';
     
+    const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
+    if (!meet) return res.status(404).json({ error: 'Meet not found' });
+
     const lifters = db.prepare(`
       SELECT l.*, d.name as division_name, wc.name as weight_class_name
       FROM lifters l
@@ -354,9 +434,6 @@ router.get('/:id/results', (req, res) => {
       WHERE l.meet_id = ?
       ORDER BY d.sort_order, d.name, wc.sort_order, wc.name, l.name
     `).all(req.params.id);
-
-    const meet = db.prepare('SELECT * FROM meets WHERE id = ?').get(req.params.id);
-    if (!meet) return res.status(404).json({ error: 'Meet not found' });
 
     const attempts = db.prepare(`
       SELECT a.* FROM attempts a
@@ -371,12 +448,14 @@ router.get('/:id/results', (req, res) => {
       attemptsByLifter[a.lifter_id].push(a);
     });
 
-    // Calculate totals and best lifts
+    // Calculate totals, best lifts, and rule disqualifications
     const results = lifters.map(lifter => {
       const la = attemptsByLifter[lifter.id] || [];
+
+      // 4th attempts are record-only and strictly EXCLUDED from best lifts and total
       const getBest = (type) => {
         const candidates = la.filter(a => {
-          if (a.lift_type !== type) return false;
+          if (a.lift_type !== type || a.attempt_number > 3) return false;
           if (a.result === 'good') return true;
           // In forecasted mode, treat 'pending' as good (Best Case Scenario)
           if (isForecasted && a.result === 'pending' && a.weight > 0) return true;
@@ -388,11 +467,64 @@ router.get('/:id/results', (req, res) => {
       const bestSquat = getBest('squat');
       const bestBench = getBest('bench');
       const bestDeadlift = getBest('deadlift');
-      
-      // Total is the sum of any successful (or forecasted) lifts
-      const total = bestSquat + bestBench + bestDeadlift;
+
+      // Check event specialization by division name
+      const divNameLower = String(lifter.division_name || '').toLowerCase();
+      const isBenchOnly = divNameLower.includes('bench only');
+      const isDeadliftOnly = divNameLower.includes('deadlift only') || divNameLower.includes('dead only');
+      const isPushPull = divNameLower.includes('push/pull') || divNameLower.includes('push pull');
+      const isSquatOnly = divNameLower.includes('squat only');
+
+      // Check bomb-outs: if all attempts in an active event are finished and none are good
+      const squatAttempts = la.filter(a => a.lift_type === 'squat' && a.attempt_number <= 3);
+      const benchAttempts = la.filter(a => a.lift_type === 'bench' && a.attempt_number <= 3);
+      const deadliftAttempts = la.filter(a => a.lift_type === 'deadlift' && a.attempt_number <= 3);
+
+      const squatFinished = squatAttempts.length > 0 && squatAttempts.every(a => a.result !== 'pending');
+      const benchFinished = benchAttempts.length > 0 && benchAttempts.every(a => a.result !== 'pending');
+      const deadliftFinished = deadliftAttempts.length > 0 && deadliftAttempts.every(a => a.result !== 'pending');
+
+      let bombedOut = false;
+      if (isBenchOnly) {
+        bombedOut = benchFinished && bestBench === 0;
+      } else if (isDeadliftOnly) {
+        bombedOut = deadliftFinished && bestDeadlift === 0;
+      } else if (isPushPull) {
+        bombedOut = (benchFinished && bestBench === 0) || (deadliftFinished && bestDeadlift === 0);
+      } else if (isSquatOnly) {
+        bombedOut = squatFinished && bestSquat === 0;
+      } else {
+        // Full Power: failing all attempts in ANY required lift constitutes a bomb-out
+        bombedOut = (squatFinished && bestSquat === 0) ||
+                    (benchFinished && bestBench === 0) ||
+                    (deadliftFinished && bestDeadlift === 0);
+      }
+
+      // In final complete meet, full powerlifters must have all three disciplines
+      const isMeetComplete = meet.status === 'complete';
+      let total = 0;
+      if (!bombedOut) {
+        if (isBenchOnly) {
+          total = bestBench;
+        } else if (isDeadliftOnly) {
+          total = bestDeadlift;
+        } else if (isPushPull) {
+          total = bestBench + bestDeadlift;
+        } else if (isSquatOnly) {
+          total = bestSquat;
+        } else {
+          // Full Power
+          if (isMeetComplete) {
+            if (bestSquat > 0 && bestBench > 0 && bestDeadlift > 0) {
+              total = bestSquat + bestBench + bestDeadlift;
+            }
+          } else {
+            total = bestSquat + bestBench + bestDeadlift;
+          }
+        }
+      }
         
-      const dots = calculateDOTS(total, lifter.body_weight, lifter.gender, meet.units || 'kg');
+      const dots = total > 0 ? calculateDOTS(total, lifter.body_weight, lifter.gender, meet.units || 'kg') : 0;
 
       return {
         ...lifter,
@@ -402,6 +534,7 @@ router.get('/:id/results', (req, res) => {
         bestDeadlift,
         total,
         dots,
+        bombedOut,
         isForecasted
       };
     });
@@ -414,17 +547,19 @@ router.get('/:id/results', (req, res) => {
       groups[key].push(r);
     });
 
-    // Sort by total desc within each group, assign places
+    // Sort by: 1) Total desc, 2) Lighter bodyweight wins, 3) Lower lot number tie-breaker
     Object.values(groups).forEach(group => {
       group.sort((a, b) => {
-        // Primary: Total desc
         if (b.total !== a.total) return b.total - a.total;
-        // Secondary: Lighter body weight wins
-        return (a.body_weight || 9999) - (b.body_weight || 9999);
+        const bwA = a.body_weight ?? 9999;
+        const bwB = b.body_weight ?? 9999;
+        if (bwA !== bwB) return bwA - bwB;
+        return (a.lot_number ?? 9999) - (b.lot_number ?? 9999);
       });
+
       let currentPlace = 1;
       group.forEach((lifter, idx) => {
-        if (lifter.total <= 0) {
+        if (lifter.total <= 0 || lifter.bombedOut) {
           lifter.place = '-';
           return;
         }
@@ -438,11 +573,29 @@ router.get('/:id/results', (req, res) => {
       });
     });
 
-    // Calculate Best Lifters across the entire meet (sorted by DOTS)
-    const bestMale = results.filter(r => r.dots > 0 && r.gender !== 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+    // Calculate Best Lifters cleanly partitioned by gender
+    const bestMale = results.filter(r => r.dots > 0 && r.gender === 'M').sort((a, b) => b.dots - a.dots).slice(0, 10);
     const bestFemale = results.filter(r => r.dots > 0 && r.gender === 'F').sort((a, b) => b.dots - a.dots).slice(0, 10);
+    const bestMx = results.filter(r => r.dots > 0 && r.gender === 'X').sort((a, b) => b.dots - a.dots).slice(0, 10);
 
-    res.json({ results, groups, bestMale, bestFemale });
+    // Team Scoring: places 1..10 award 12, 9, 8, 7, 6, 5, 4, 3, 2, 1 points
+    const teamPointsMap = { 1: 12, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1 };
+    const teamScores = {};
+
+    Object.values(groups).forEach(group => {
+      group.forEach(lifter => {
+        if (lifter.team && lifter.team.trim() && typeof lifter.place === 'number' && teamPointsMap[lifter.place]) {
+          const teamName = lifter.team.trim();
+          teamScores[teamName] = (teamScores[teamName] || 0) + teamPointsMap[lifter.place];
+        }
+      });
+    });
+
+    const teamStandings = Object.entries(teamScores)
+      .map(([team, points]) => ({ team, points }))
+      .sort((a, b) => b.points - a.points);
+
+    res.json({ results, groups, bestMale, bestFemale, bestMx, teamStandings });
   } catch (err) {
     console.error('[API] Error generating results:', err);
     res.status(500).json({ error: err.message });

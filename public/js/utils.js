@@ -12,8 +12,9 @@ const BAR_WEIGHT = { kg: 25, lbs: 45 };
  * Calculate plates needed per side for a given weight
  */
 function calculatePlates(totalWeight, unit = 'kg') {
-  const barWeight = BAR_WEIGHT[unit];
-  const plates = PLATE_SETS[unit];
+  const normalizedUnit = (unit === 'lb' || unit === 'lbs') ? 'lbs' : 'kg';
+  const barWeight = BAR_WEIGHT[normalizedUnit] || 25;
+  const plates = PLATE_SETS[normalizedUnit] || PLATE_SETS.kg;
   let remaining = (totalWeight - barWeight) / 2;
   const result = [];
   
@@ -173,7 +174,10 @@ function createSidebar(meetId, meetName, activePage) {
     </nav>
   `;
   
-  document.body.insertAdjacentHTML('afterbegin', sidebarHtml);
+  const parsed = new DOMParser().parseFromString(sidebarHtml, 'text/html');
+  while (parsed.body.firstChild) {
+    document.body.insertBefore(parsed.body.firstChild, document.body.firstChild);
+  }
   
   // Update version dynamically
   API.getNetworkInfo().then(info => {
@@ -186,6 +190,7 @@ function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('active');
   document.getElementById('sidebarOverlay').classList.toggle('active');
 }
+window.toggleSidebar = toggleSidebar;
 
 async function showQRCode(e) {
   e.preventDefault();
@@ -195,7 +200,9 @@ async function showQRCode(e) {
     let meet = null;
     try {
       meet = await API.getMeet(meetId);
-    } catch(e) {}
+    } catch (err) {
+      console.warn('[QR] Meet lookup error:', err.message);
+    }
     
     // Default URLs
     const paths = [
@@ -265,7 +272,12 @@ function openModal(contentHtml) {
     });
     document.body.appendChild(overlay);
   }
-  overlay.querySelector('.modal').innerHTML = contentHtml;
+  const modal = overlay.querySelector('.modal');
+  modal.replaceChildren();
+  const parsed = new DOMParser().parseFromString(contentHtml, 'text/html');
+  while (parsed.body.firstChild) {
+    modal.appendChild(parsed.body.firstChild);
+  }
   requestAnimationFrame(() => overlay.classList.add('active'));
 }
 
@@ -378,10 +390,10 @@ function getParam(name) {
  * Toast notifications
  */
 function showToast(message, type = 'success') {
-  let container = document.getElementById('toast-container');
+  let container = document.querySelector('.toast-container');
   if (!container) {
     container = document.createElement('div');
-    container.id = 'toast-container';
+    container.className = 'toast-container';
     document.body.appendChild(container);
   }
   
@@ -397,18 +409,25 @@ function showToast(message, type = 'success') {
   // Auto-remove
   setTimeout(() => {
     toast.classList.remove('show');
-    setTimeout(() => container.removeChild(toast), 300);
+    setTimeout(() => {
+      if (toast.parentElement) {
+        toast.parentElement.removeChild(toast);
+      }
+    }, 300);
   }, 4000);
 }
 
-/**
- * Escape string for CSV format
- */
-function escapeCSV(text) {
-  if (text === null || text === undefined) return '';
-  const str = String(text);
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return '"' + str.replace(/"/g, '""') + '"';
-  }
-  return str;
-}
+window.showQRCode = showQRCode;
+window.CompetitionTimer = CompetitionTimer;
+window.escapeHtml = escapeHtml;
+window.getStatusColor = getStatusColor;
+window.escapeCSV = escapeCSV;
+window.calculatePlates = calculatePlates;
+window.renderPlateLoader = renderPlateLoader;
+window.formatWeight = formatWeight;
+window.getAttemptClass = getAttemptClass;
+window.getBestAttempt = getBestAttempt;
+window.calculateTotal = calculateTotal;
+window.showToast = showToast;
+window.openModal = openModal;
+window.closeModal = closeModal;

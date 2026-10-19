@@ -43,7 +43,7 @@ describe('Lifters API', () => {
     expect(lifter.body_weight).toBe(60.5);
   });
 
-  test('POST /api/lifters should fail with invalid body weight', async () => {
+  test('POST /api/lifters should fail with invalid body weight or invalid meet', async () => {
     const res = await request(app)
       .post('/api/lifters')
       .send({
@@ -51,11 +51,18 @@ describe('Lifters API', () => {
         name: 'Jane Doe',
         body_weight: -10
       });
-    
     expect(res.statusCode).toBe(400);
+
+    const resNoMeet = await request(app)
+      .post('/api/lifters')
+      .send({
+        meet_id: 'nonexistent-meet-id',
+        name: 'Jane Doe'
+      });
+    expect(resNoMeet.statusCode).toBe(404);
   });
 
-  test('PUT /api/lifters/:id should update lifter details', async () => {
+  test('PUT /api/lifters/:id should update lifter details and validate gender', async () => {
     const createRes = await request(app)
       .post('/api/lifters')
       .send({ meet_id: meetId, name: 'Original Name' });
@@ -63,21 +70,32 @@ describe('Lifters API', () => {
     const id = createRes.body.id;
     const res = await request(app)
       .put(`/api/lifters/${id}`)
-      .send({ name: 'Updated Name', team: 'Strong Team' });
+      .send({ name: 'Updated Name', team: 'Strong Team', gender: 'F' });
     
     expect(res.statusCode).toBe(200);
     expect(res.body.name).toBe('Updated Name');
     expect(res.body.team).toBe('Strong Team');
+    expect(res.body.gender).toBe('F');
+
+    // Reject invalid gender
+    const invalidGenderRes = await request(app)
+      .put(`/api/lifters/${id}`)
+      .send({ gender: 'INVALID' });
+    expect(invalidGenderRes.statusCode).toBe(400);
   });
 
-  test('DELETE /api/lifters/:id should remove lifter and their attempts', async () => {
+  test('DELETE /api/lifters/:id should remove lifter, cascade attempts, and clear meet_state', async () => {
     const createRes = await request(app)
       .post('/api/lifters')
       .send({ meet_id: meetId, name: 'To Be Deleted' });
     
     const id = createRes.body.id;
+
+    // Set this lifter as current lifter in meet_state
+    db.prepare('UPDATE meet_state SET current_lifter_id = ? WHERE meet_id = ?').run(id, meetId);
+    expect(db.prepare('SELECT current_lifter_id FROM meet_state WHERE meet_id = ?').get(meetId).current_lifter_id).toBe(id);
+
     const res = await request(app).delete(`/api/lifters/${id}`);
-    
     expect(res.statusCode).toBe(200);
     
     const lifter = db.prepare('SELECT * FROM lifters WHERE id = ?').get(id);
@@ -85,6 +103,20 @@ describe('Lifters API', () => {
     
     const attempts = db.prepare('SELECT * FROM attempts WHERE lifter_id = ?').all(id);
     expect(attempts).toHaveLength(0);
+
+    // Verify current_lifter_id was cleared in meet_state
+    const state = db.prepare('SELECT current_lifter_id FROM meet_state WHERE meet_id = ?').get(meetId);
+    expect(state.current_lifter_id).toBe('');
+  });
+
+  test('PATCH and DELETE /api/lifters/bulk should reject requests exceeding 500 ids', async () => {
+    const oversizedIds = Array.from({ length: 501 }, (_, i) => `id-${i}`);
+    
+    const patchRes = await request(app).patch('/api/lifters/bulk').send({ ids: oversizedIds, flight: 'B' });
+    expect(patchRes.statusCode).toBe(400);
+
+    const deleteRes = await request(app).delete('/api/lifters/bulk').send({ ids: oversizedIds });
+    expect(deleteRes.statusCode).toBe(400);
   });
 
   test('POST /api/lifters/import/:meetId should import from CSV', async () => {

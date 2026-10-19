@@ -408,11 +408,28 @@
       document.getElementById('displayAttemptInfo').textContent = parts.join(' · ');
       
       const weight = attempt?.weight || lifter.currentWeight || 0;
-      document.getElementById('displayWeight').innerHTML = weight > 0 ? `${weight} <span>${meetUnits}</span>` : '—';
+      const weightEl = document.getElementById('displayWeight');
+      weightEl.replaceChildren();
+      if (weight > 0) {
+        const textNode = document.createTextNode(`${weight} `);
+        const span = document.createElement('span');
+        span.textContent = meetUnits;
+        weightEl.append(textNode, span);
+      } else {
+        weightEl.textContent = '—';
+      }
       document.getElementById('displayLiftInfo').textContent = `${LIFT_NAMES[liftType] || liftType} — Attempt ${attemptNumber}`;
       
       // Plate loader
-      document.getElementById('displayPlateLoader').innerHTML = weight > 0 ? renderPlateLoader(weight, meetUnits) : '';
+      const loaderEl = document.getElementById('displayPlateLoader');
+      loaderEl.replaceChildren();
+      if (weight > 0) {
+        const loaderHtml = renderPlateLoader(weight, meetUnits);
+        const parsed = new DOMParser().parseFromString(loaderHtml, 'text/html');
+        while (parsed.body.firstChild) {
+          loaderEl.appendChild(parsed.body.firstChild);
+        }
+      }
 
       // ── Rack height badge ──────────────────────────────────────────────────
       const badge = document.getElementById('rackHeightBadge');
@@ -433,7 +450,7 @@
       } else if (liftType === 'bench') {
         rawRackHeight = lifter.bench_rack_height || lifter.rack_height || '';
         rackLabelText = 'Bench Rack';
-        const safety = lifter.bench_safety_height || '4';
+        const safety = escapeHtml(lifter.bench_safety_height || '4');
         const blocks = lifter.bench_blocks === 'Y' ? 'YES' : 'NO';
         extraHtml = `<div class="rack-extra-info">🛡️ Safety: ${safety}</div>
                      <div class="rack-extra-info" style="border:none;padding:0;margin-top:2px">🦶 Blocks: ${blocks}</div>`;
@@ -445,10 +462,17 @@
         badge.classList.remove('no-rack');
         rackLabel.textContent = rackLabelText;
         rackValue.textContent = safeRackHeight !== '' ? safeRackHeight : '—';
-        rackExtra.innerHTML = extraHtml;
+        rackExtra.replaceChildren();
+        if (extraHtml) {
+          const parsed = new DOMParser().parseFromString(`<div>${extraHtml}</div>`, 'text/html');
+          const div = parsed.querySelector('div');
+          while (div && div.firstChild) {
+            rackExtra.appendChild(div.firstChild);
+          }
+        }
       } else {
         badge.classList.add('no-rack');
-        rackExtra.innerHTML = '';
+        rackExtra.replaceChildren();
       }
 
       // ── On Deck / In the Hole ──────────────────────────────────────────────
@@ -477,7 +501,13 @@
           const isCurrent = l.id === lifter.id;
           return `<span style="${isCurrent ? 'color:var(--accent-secondary);font-weight:700' : ''}">${escapeHtml(l.name.split(' ')[0])}${l.currentWeight ? ` (${l.currentWeight})` : ''}</span>`;
         }).join(' → ');
-        document.getElementById('miniOrder').innerHTML = miniHtml;
+        const miniEl = document.getElementById('miniOrder');
+        miniEl.replaceChildren();
+        const miniDoc = new DOMParser().parseFromString(`<div>${miniHtml}</div>`, 'text/html');
+        const miniDiv = miniDoc.querySelector('div');
+        while (miniDiv && miniDiv.firstChild) {
+          miniEl.appendChild(miniDiv.firstChild);
+        }
       }
     }
 
